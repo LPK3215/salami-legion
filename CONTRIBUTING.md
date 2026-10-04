@@ -43,7 +43,7 @@ npm test           # jsdom 端到端测试：真实点击全部界面 + 校验�
 | `server.js` | 126 | 零依赖静态服务器（含目录穿越防护、`/healthz`） |
 | `test/dom.test.js` | 564 | jsdom 端到端测试 |
 | `scripts/start.sh` | 56 | CNB 云开发环境幂等启动脚本 |
-| `scripts/visualization/` | — | 图表生成器：`lib_load_facts.mjs`（事实层）+ 3 个 `generate_*.mjs`，产物写入 `docs/*.svg` |
+| `scripts/visualization/` | — | 图表与览页数据生成器：`lib_load_facts.mjs`（事实层）+ 3 个 `generate_*_svg.mjs`（产物写 `docs/*.svg`）+ `generate_overview_facts.mjs`（产物写 `project_overview/facts.js`） |
 
 **加内容优先改 `js/config.js`，不要在 `engine.js` / `ui.js` 里硬编码数值。**
 
@@ -78,11 +78,22 @@ const SAVE_KEY = 'mini_legion_save_v1';
    `docs/02-modes.md`、`docs/03-systems.md` 与 `README.md` 里对应的描述，否则视为不完整改动。
 5. 资源引用一律**相对路径**（`css/style.css`、`js/engine.js`），不要用 `/绝对路径` —— 
    站点部署在子路径 `lpk3215.github.io/salami-legion/` 下，绝对路径会 404。
+   同理，**站内跳转也用相对路径**（如览页的 `href="../"` 回游戏），这样本地与线上都能闭环；
+   跨站（GitHub）才用绝对 `https://`。
 6. 文件名小写 + 连字符，不含空格与中文。
-7. **不在仓库内放二进制素材**（图片/音频/字体）。README 需要图时用 `scripts/visualization/` 生成 SVG；
+7. **在新标签页打开东西，请写真 `<a target="_blank" rel="noopener">`，不要用
+   `window.open(url, '_blank', 'noopener')`。** 后者按规范会**返回 null**（features 里带 noopener 时），
+   于是 `if (!win) location.href = url` 这类兜底分支**恒触发**，把当前页（比如玩家正在玩的游戏）
+   一起导航走。实测踩过。
+8. **不在仓库内放二进制素材**（图片/音频/字体）。README 需要图时用 `scripts/visualization/` 生成 SVG；
    需要截图则保留 `<!-- TODO: 截图待补充 -->` 占位，不伪造截图，也不把 PNG 提交进仓库。
-8. **图表不手写。** `docs/*.svg` 是生成产物，数字均来自 `lib_load_facts.mjs`；新增图表请新增一个
-   `generate_<asset_name>.mjs`（只用 Node 内置模块，不引第三方依赖），而不是手写 SVG 或改现有样式。
+9. **图表与览页数据不手写。** `docs/*.svg` 与 `project_overview/facts.js` 都是生成产物，数字均来自
+   `lib_load_facts.mjs`；新增图表请新增一个 `generate_<asset_name>.mjs`（只用 Node 内置模块，
+   不引第三方依赖），而不是手写 SVG 或改现有样式。览页正文一律用 `data-fact` / `data-count` / `data-snippet`
+   占位，**不得把统计值直接写死在 `index.html` 里**。
+10. **CDN 外链只允许出现在 `project_overview/` 这份文档页**（Google Fonts 与 Chart.js，均用 `https://` 协议）。
+   游戏本体（`index.html` + `css/` + `js/`）**继续零外链零依赖**，且览页在 CDN 不可用时必须能降级阅读
+   （现有做法：Chart.js 缺失时自动换成等价表格）。
 
 ---
 
@@ -109,9 +120,26 @@ npm test
 会真实驱动界面：主菜单 → 关卡选择 → 商店 → 成就 → 准备页 → 对局 → 逐个吞噬校验 →
 摇杆/键盘/多指 → 通关结算与三选一 → 暂停 → 失败流程，最后打印 `全部通过 ✓`。
 
-**已知偶发失败（不是你的 bug）：** 用例「应为多帧逐个消耗，而非一次性吞并」依赖帧推进
-时序，实测主干与改动后均为约 2/6 概率失败（同一断言）。判定方法是**重跑两到三次**：
-如果重跑通过且你没动 `eat.interval` 相关逻辑，就是抖动，PR 描述里注明即可。
+**已知抖动：§9 「逐个单位吞噬」那一节。** 它不是玩法坏了，而是测试把断言绑在了墙钟上：
+
+- 机理：引擎里 `dt = (rAF 时间戳 − lastT)/1000` 且 `clamp 0.05s`（`js/engine.js` 主循环），
+  而测试的 `frames(20)` 只数帧不管每帧走了多久 —— 于是一批 20 帧实际推进的游戏时长
+  会在约 0.02s～1.0s 之间随机器负载浮动。而吞噬节奏是 `0.32s / 1 个单位`。
+- 以三种不同面目出现（都是同一根因）：
+
+| 失败文案 | 实际发生了什么 |
+|---|---|
+| `应为多帧逐个消耗，而非一次性吞并，递减次数=1` | 一批跨了多个 0.32s 节拍，多次转移落进同一个快照批次 |
+| `敌方应被杀光，实际剩 3（我方 6）` | 时间走得太少，没吞完 |
+| `测试中我方不应全灭` | 时间走得太多，反被吞光 |
+
+- 实测失败率（同一份主干代码）：安静时约 **2/6**；并发负载高时（浏览器自动化 + 多个 node 进程）会升到
+  **3/4 乃至 6/6**，且失败会在上面三种之间跳转。**重跑两三次**能过且未碰 `CFG.eat.interval` 即为抖动。
+- 已尝试过的错误修法（别再踩）：把 `requestAnimationFrame` 换成 `setTimeout(0)` 并固定 1/60s 虚拟步长。
+  它确实让时间基准确定化了，但每帧游戏时长从“最高 0.05s”变成“恒等 0.0167s”，
+  而所有帧预算是按旧节奏调的 → 整体慢约 3 倍，反而 **6/6 全挂**（多出“接近中立小人后人数未增长”）。
+  真正的修复必须**同时**把帧预算换算成秒（或给引擎提供一个显式 `step(dt)` 入口），属于玩法侧改动，
+  需单独开 PR 讨论，不要混在功能 PR 里。
 
 更多调试手段（引擎压力/平衡模拟、浏览器内调试）见 [docs/04-development.md](docs/04-development.md) 第 6 节。
 
@@ -146,4 +174,5 @@ Bug 请附：浏览器与版本、操作系统、复现步骤（到哪个界面�
 - [ ] CHANGELOG 的 `[Unreleased]` 有本次条目
 - [ ] 文档中的数值与实际取值一致
 - [ ] 若改了 `js/config.js` 的条目数量、文件行数或主题色，跑过 `npm run docs:svg` 并把刷新后的 `docs/*.svg` 一起提交
+- [ ] 若改了目录结构、测试规模或引擎常量，跑过 `npm run overview:data` 并提交 `project_overview/facts.js`
 - [ ] 浏览器 Console 无报错，站点子路径下资源不 404

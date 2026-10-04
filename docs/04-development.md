@@ -32,10 +32,14 @@
 │   ├── engine.js           核心引擎：Game 类、军团、战斗、AI、渲染
 │   └── ui.js               界面与流程控制：UI 对象
 ├── server.js               零依赖静态服务器
-├── scripts/start.sh        幂等启动脚本（供 CNB_WELCOME_CMD 调用）
+├── scripts/
+│   ├── start.sh            幂等启动脚本（供 CNB_WELCOME_CMD 调用）
+│   └── visualization/      文档图表与览页数据生成器（仅用 Node 内置模块）
 ├── test/dom.test.js        jsdom 端到端测试
+├── project_overview/       项目全景观览页（仪表盘）
+├── project_overview.html   根目录入口跳转页
 ├── .cnb.yml                CNB 云开发环境配置（自动启动服务）
-└── docs/                   本套文档
+└── docs/                   本套文档 + 三张生成的 SVG
 ```
 
 脚本加载顺序（`index.html` 底部）**不能改**：
@@ -286,7 +290,12 @@ npm test
    技能释放、暂停/继续、通关结算、三选一、关卡推进、**无尽模式逐层扩大**、失败流程、商店购买、存档持久化
 6. 捕获任何 jsdom 运行期 JS 错误，一旦出现即判定失败
 
-当前共 **29 项断言**，全部通过。
+当前规模（由 `scripts/visualization/lib_load_facts.mjs` 统计，可用 `npm run overview:data` 重算）：
+**17 段流程 · 104 处断言调用点 · 38 项界面校验**。全部通过时最后一行输出 `全部通过 ✓`。
+
+> 已知抖动：「应为多帧逐个消耗，而非一次性吞并」一例依赖帧推进的墙钟时长，高负载下会报
+> `递减次数=1`（实测主干本身也有约 2/6 概率）。重跑两三次即可区分抖动与真回归，
+> 详见 [../CONTRIBUTING.md](../CONTRIBUTING.md) 第 6 节。
 
 ### 引擎压力/平衡模拟
 

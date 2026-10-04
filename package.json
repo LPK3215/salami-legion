@@ -18,7 +18,8 @@
     "start": "node server.js",
     "dev": "node server.js",
     "test": "node test/dom.test.js",
-    "docs:svg": "node scripts/visualization/generate_architecture_svg.mjs && node scripts/visualization/generate_attrition_mechanic_svg.mjs && node scripts/visualization/generate_content_scale_svg.mjs"
+    "docs:svg": "node scripts/visualization/generate_architecture_svg.mjs && node scripts/visualization/generate_attrition_mechanic_svg.mjs && node scripts/visualization/generate_content_scale_svg.mjs",
+    "overview:data": "node scripts/visualization/generate_overview_facts.mjs"
   },
   "keywords": ["game", "io", "canvas", "browser", "casual", "attrition", "single-player"],
   "engines": {

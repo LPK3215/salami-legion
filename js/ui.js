@@ -53,6 +53,11 @@ const UI = {
     on('btn-achv', () => this.openAchv());
     on('btn-help', () => this.show('screen-help'));
 
+    /* 「项目介绍」是一个真 <a target="_blank"> 链接（见 index.html），导航完全交给浏览器：
+       这里只给它补一个点击音效。之前用 window.open(url,'_blank','noopener') 是错的 ——
+       带 features 的 noopener 会使其返回 null，导致兜底分支恒触发、把游戏标签页一起导航走。 */
+    on('btn-about', () => {});
+
     on('btn-levels-back', () => this.show('screen-menu'));
     on('btn-prep-back', () => this.show('screen-menu'));
     on('btn-shop-back', () => this.show('screen-menu'));

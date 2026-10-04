@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>蚕食军团 · 项目全景观览</title>
+<meta name="description" content="蚕食军团（Salami Legion）项目全景观览仪表盘：架构、机制、内容量级、API、测试与文档索引。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="scroll-progress" id="progress"></div>
+
+<!-- ============ 顶部导航 ============ -->
+<header class="nav" id="nav">
+  <a class="brand" href="#hero">
+    <span class="brand-mark">🥩</span>
+    <span class="brand-text"><b>蚕食军团</b><em>Salami Legion</em></span>
+  </a>
+  <nav class="nav-links" id="navLinks">
+    <a href="#overview">简介</a>
+    <a href="#arch">架构</a>
+    <a href="#mechanic">核心机制</a>
+    <a href="#stack">技术栈</a>
+    <a href="#content">内容量级</a>
+    <a href="#tree">目录结构</a>
+    <a href="#start">快速开始</a>
+    <a href="#api">API</a>
+    <a href="#quality">测试与质量</a>
+    <a href="#docs">文档索引</a>
+    <a href="#license">许可</a>
+  </nav>
+  <div class="nav-actions">
+    <a class="btn-mini" href="https://github.com/LPK3215/salami-legion" target="_blank" rel="noopener">仓库</a>
+    <a class="btn-mini accent" href="../" target="_blank" rel="noopener">▶ 试玩</a>
+    <button class="btn-mini theme-toggle" id="themeToggle" title="切换深色 / 浅色">🌗</button>
+    <button class="btn-mini burger" id="burger" aria-label="菜单">☰</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ============ 侧边目录 ============ -->
+  <aside class="toc" id="toc">
+    <button class="toc-head" id="tocToggle"><span>目录</span><i>▾</i></button>
+    <ul class="toc-list" id="tocList"></ul>
+    <div class="toc-foot">
+      <span class="dim">数据真源</span>
+      <code class="tiny" data-fact="meta.generator"></code>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ============ Hero ============ -->
+    <section class="hero" id="hero">
+      <div class="hero-bg"></div>
+      <div class="hero-inner">
+        <p class="eyebrow">项目全景观览 · 单页仪表盘</p>
+        <h1>蚕食军团<span class="hero-dot">.</span></h1>
+        <p class="hero-sub">Salami Legion —— 一支军团，<b>一个一个</b>地把对手啃下来。</p>
+        <div class="chips">
+          <span class="chip">v<em data-fact="meta.version"></em></span>
+          <span class="chip"><em data-fact="meta.license"></em></span>
+          <span class="chip">运行时依赖 <em data-fact="meta.runtimeDeps"></em></span>
+          <span class="chip">Node <em data-fact="meta.node"></em></span>
+          <span class="chip">Canvas 2D · WebAudio · localStorage</span>
+          <span class="chip">纯前端 · 无构建 · 无后端</span>
+        </div>
+        <div class="cta-row">
+          <a class="cta play primary" href="../" target="_blank" rel="noopener">
+            <span class="play-ico">▶</span>
+            <span class="play-txt"><b>立即开玩</b><i>免下载 · 免登录 · 进度只存在你自己的浏览器里</i></span>
+          </a>
+          <a class="cta" href="https://github.com/LPK3215/salami-legion" target="_blank" rel="noopener">GitHub 仓库</a>
+          <button class="cta ghost" id="copyClone">克隆命令</button>
+        </div>
+        <p class="clone-hint tiny dim">git clone <span data-fact="meta.cloneUrl"></span></p>
+
+        <div class="stats" id="heroStats">
+          <div class="stat"><b data-count="content.levels"></b><span>主线关卡</span></div>
+          <div class="stat"><b data-count="content.skills"></b><span>本局技能</span></div>
+          <div class="stat"><b data-count="content.skins"></b><span>可购皮肤</span></div>
+          <div class="stat"><b data-count="content.achievements"></b><span>成就</span></div>
+          <div class="stat"><b data-count="totals.screens"></b><span>界面屏数</span></div>
+          <div class="stat"><b data-count="test.asserts"></b><span>端到端断言</span></div>
+          <div class="stat"><b data-count="totals.jsLines"></b><span>JS 代码行数</span></div>
+          <div class="stat"><b data-count="meta.runtimeDeps"></b><span>运行时依赖</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 简介 ============ -->
+    <section class="sec" id="overview">
+      <h2>它解决什么问题</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>品类里的老问题</h3>
+          <p>军团 / 人群类 IO 游戏的通行规则是<strong>接触即整队吞并</strong>：两支军团撞上，
+            人数少的一方一瞬间全没了。于是游戏退化成「谁先变大谁碾压」，
+            碰撞的瞬间就宣判结果，中间过程没有决策。</p>
+          <p>本作把这条规则改掉：接触后<strong>每 <em data-fact="mechanics.eatInterval"></em> 秒才转移 1 个单位</strong>，
+            逐个持续消耗，直到一方清零。碰撞不再是终点判决，而是一段<strong>可以被打断、可以反打、可以撤退</strong>的过程。</p>
+        </div>
+        <div class="card">
+          <h3>由此产生的玩法深度</h3>
+          <ul class="ticks">
+            <li><b>撤退真的有用</b>：脱离接触会把这对军团的吞噬计时器重置为满，「跑掉再回来」不带半个节拍。</li>
+            <li><b>势均力敌会僵持</b>：人数相等时不产生吞噬，只能绕开或先吃掉弱者滚雪球。</li>
+            <li><b>多方接触并行消耗</b>：计时器按「军团对」独立维护，被两支队伍夹击时是同时挨两路啃。</li>
+            <li><b>数值判断重于操作</b>：绿色标记（人少）冲、红色标记（人多）跑，读盘比手速值钱。</li>
+          </ul>
+          <p class="dim tiny">以上机制描述与实现均出自 <code>js/engine.js</code> 的 <code>updateCombat()</code>，见下方「核心机制」代码原文。</p>
+        </div>
+      </div>
+      <div class="card wide highlight">
+        <p><b>一句话定位：</b><span data-fact="meta.description"></span></p>
+      </div>
+    </section>
+
+    <!-- ============ 转化横幅：读了一轮就能直接上手 ============ -->
+    <section class="cta-band" id="play">
+      <div class="cta-band-inner">
+        <p class="eyebrow">不用装任何东西</p>
+        <h2>现在就能开一局</h2>
+        <p class="cta-note">页面里所有结论都来自同一份代码：运行时依赖 <b data-fact="meta.runtimeDeps"></b> 个，
+          没有构建步骤 —— 下面的按钮用相对路径指回仓库根的游戏本体，本地与 Pages 子路径都能闭环。</p>
+        <a class="cta play primary xl" href="../" target="_blank" rel="noopener">
+          <span class="play-ico">▶</span>
+          <span class="play-txt"><b>立即开玩</b><i>同一个仓库、同一次部署，打开即玩</i></span>
+        </a>
+        <p class="tiny dim">想先弄懂再玩：<a href="#mechanic">核心机制</a> · <a href="#content">关卡数值</a> · 想自己跑一份：<a href="#start">本地运行</a></p>
+      </div>
+    </section>
+
+    <!-- ============ 架构 ============ -->
+    <section class="sec" id="arch">
+      <h2>架构全景</h2>
+      <p class="sec-note">分层与依赖方向：<b>页面 → 真源配置 → 引擎 → 外围模块 → 浏览器能力 → 分发</b>。
+        把鼠标移到节点上可以看说明。</p>
+
+      <div class="card arch-card">
+        <svg viewBox="0 0 1120 470" class="arch-svg" id="archSvg" role="img" aria-label="蚕食军团架构图">
+          <defs>
+            <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path d="M0,0 L9,4.5 L0,9 Z" class="ah-fill"/>
+            </marker>
+          </defs>
+          <g class="layer" data-node="ui">
+            <text x="34" y="34" class="lt">表现层</text>
+            <rect x="150" y="14" width="300" height="52" rx="10" class="nd"/>
+            <text x="300" y="38" class="nd-t">index.html</text>
+            <text x="300" y="55" class="nd-s">页面骨架 · <tspan data-fact="totals.screens"></tspan> 个 screen 区块与 HUD</text>
+            <rect x="470" y="14" width="300" height="52" rx="10" class="nd"/>
+            <text x="620" y="38" class="nd-t">css/style.css</text>
+            <text x="620" y="55" class="nd-s">全站样式与 :root 主题色</text>
+            <rect x="790" y="14" width="290" height="52" rx="10" class="nd dash"/>
+            <text x="935" y="38" class="nd-t">加载顺序不可改</text>
+            <text x="935" y="55" class="nd-s">config → save → audio → engine → ui</text>
+          </g>
+          <g class="layer" data-node="cfg">
+            <text x="34" y="128" class="lt">数据真源</text>
+            <rect x="150" y="100" width="930" height="56" rx="10" class="nd gold"/>
+            <text x="615" y="124" class="nd-t">js/config.js</text>
+            <text x="615" y="142" class="nd-s">关卡 · 技能 · 增益 · 皮肤 · 成就 · 无尽生成器 makeEndlessStage(n)</text>
+          </g>
+          <g class="layer" data-node="engine">
+            <text x="34" y="222" class="lt">引擎层</text>
+            <rect x="150" y="190" width="930" height="66" rx="10" class="nd purple"/>
+            <text x="615" y="216" class="nd-t">js/engine.js —— IIFE，仅向 window 暴露 MiniGame / GameUtils</text>
+            <text x="615" y="238" class="nd-s">Legion 类 · updateCombat 逐个吞噬 · AI · 编队（黄金角螺旋站位）· 空间网格 · 渲染</text>
+          </g>
+          <g class="layer" data-node="mods">
+            <text x="34" y="316" class="lt">外围模块</text>
+            <rect x="150" y="288" width="300" height="52" rx="10" class="nd"/>
+            <text x="300" y="312" class="nd-t">js/ui.js</text>
+            <text x="300" y="329" class="nd-s">界面流转 · hooks 接收引擎回调</text>
+            <rect x="470" y="288" width="300" height="52" rx="10" class="nd"/>
+            <text x="620" y="312" class="nd-t">js/save.js</text>
+            <text x="620" y="329" class="nd-s">存档 merge / persist / reset</text>
+            <rect x="790" y="288" width="290" height="52" rx="10" class="nd"/>
+            <text x="935" y="312" class="nd-t">js/audio.js</text>
+            <text x="935" y="329" class="nd-s">WebAudio 振荡器合成，无音频文件</text>
+          </g>
+          <g class="layer" data-node="api">
+            <text x="34" y="404" class="lt">浏览器能力</text>
+            <rect x="150" y="376" width="300" height="52" rx="10" class="nd green"/>
+            <text x="300" y="400" class="nd-t">Canvas 2D</text>
+            <text x="300" y="417" class="nd-s">精灵缓存 + 视口裁剪 + 小地图</text>
+            <rect x="470" y="376" width="300" height="52" rx="10" class="nd green"/>
+            <text x="620" y="400" class="nd-t">WebAudio</text>
+            <text x="620" y="417" class="nd-s">首次交互解锁上下文</text>
+            <rect x="790" y="376" width="290" height="52" rx="10" class="nd green"/>
+            <text x="935" y="400" class="nd-t">localStorage</text>
+            <text x="935" y="417" class="nd-s">键 <tspan data-fact="meta.saveKey"></tspan></text>
+          </g>
+          <g class="wires">
+            <path d="M615 66 L615 100" class="wire" marker-end="url(#ah)"/>
+            <path d="M615 156 L615 190" class="wire" marker-end="url(#ah)"/>
+            <path d="M300 256 L300 288" class="wire" marker-end="url(#ah)"/>
+            <path d="M620 256 L620 288" class="wire" marker-end="url(#ah)"/>
+            <path d="M935 256 L935 288" class="wire" marker-end="url(#ah)"/>
+            <path d="M300 340 L300 376" class="wire" marker-end="url(#ah)"/>
+            <path d="M620 340 L620 376" class="wire" marker-end="url(#ah)"/>
+            <path d="M935 340 L935 376" class="wire" marker-end="url(#ah)"/>
+          </g>
+        </svg>
+        <div class="arch-tip" id="archTip"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>每帧更新顺序（<code>update(dt)</code>）</h3>
+          <div class="code" data-lang="text"><pre data-list="updateOrder"></pre></div>
+          <p class="dim tiny">这段顺序摘自 <code>docs/04-development.md</code> §3.2，页面按行原样呈现。</p>
+        </div>
+        <div class="card">
+          <h3>引擎规模与常量</h3>
+          <div class="table-wrap">
+  <table class="tbl">
+              <tbody>
+                <tr><td>JS 代码总行数</td><td><b data-fact="totals.jsLines"></b></td></tr>
+                <tr><td>单军团站位表上限 <code>CFG.maxUnits</code></td><td><b data-fact="mechanics.maxUnits"></b></td></tr>
+                <tr><td>全场单位总量上限 <code>unitTotalMax</code></td><td><b data-fact="mechanics.unitTotalMax"></b></td></tr>
+                <tr><td>中立小人上限 <code>neutralMax</code></td><td><b data-fact="mechanics.neutralMax"></b></td></tr>
+                <tr><td>空间网格边长 <code>this.cell</code></td><td><b data-fact="mechanics.gridCell"></b> px</td></tr>
+                <tr><td>收编判定半径 <code>CFG.pickup</code></td><td><b data-fact="mechanics.pickup"></b></td></tr>
+                <tr><td>地图尺寸 <code>CFG.world</code></td><td><b data-fact="mechanics.worldW"></b> × <b data-fact="mechanics.worldH"></b></td></tr>
+                <tr><td>镜头缩放区间 <code>CFG.zoom</code></td><td><b data-fact="mechanics.zoom.min"></b> ~ <b data-fact="mechanics.zoom.max"></b></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 核心机制 ============ -->
+    <section class="sec" id="mechanic">
+      <h2>核心机制 · 逐个单位吞噬</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>两种规则的差别（同一时间尺）</h3>
+          <div class="chart-box"><canvas id="chartAttrition" height="230"></canvas></div>
+          <p class="dim tiny">曲线由 <code>charts.js</code> 依 <code>CFG.eat.interval</code> 实时绘制；双方初始人数为机制示意值（敌 5 / 我 3）。</p>
+        </div>
+        <div class="card">
+          <h3>实现原文（<code>js/engine.js</code> · <code>updateCombat()</code>）</h3>
+          <div class="code" data-lang="js"><pre data-snippet="eatCore"></pre><button class="copy" data-copy="eatCore">复制</button></div>
+          <ul class="ticks">
+            <li><code>pairTimers</code> 按军团对维护 —— 多路接触各自独立消耗。</li>
+            <li>脱离接触即把该对计时器重置为满 —— 逃生机制成立的基础。</li>
+            <li><code>absorb()</code> 挑最靠近接触点的单位，前线的先掉。</li>
+            <li>调整节奏只改 <code>CFG.eat.interval</code>（全局）或 <code>atkRate</code>（局部）。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 技术栈 ============ -->
+    <section class="sec" id="stack">
+      <h2>技术栈与取舍</h2>
+      <div class="card wide">
+        <div class="table-wrap">
+  <table class="tbl">
+            <thead><tr><th>项</th><th>选择</th><th>为什么</th></tr></thead>
+            <tbody>
+              <tr><td>前端</td><td>原生 HTML + CSS + ES6</td><td>零构建、零依赖，双击 <code>index.html</code> 就能跑</td></tr>
+              <tr><td>渲染</td><td>Canvas 2D</td><td>同屏可达上千小人，DOM 撑不住</td></tr>
+              <tr><td>音效</td><td>WebAudio 实时合成</td><td>不需要任何音频素材文件</td></tr>
+              <tr><td>存档</td><td>localStorage</td><td>纯前端，无需服务端</td></tr>
+              <tr><td>服务</td><td>Node 零依赖静态服务器</td><td>只把静态文件用 http 提供出去，方便预览</td></tr>
+              <tr><td>测试</td><td>Node + jsdom</td><td>无头环境里真实执行页面脚本、真实点击 DOM</td></tr>
+              <tr><td>文档图表</td><td>Node 内置模块生成 SVG / facts</td><td>数字运行时取自真源，不手写、不引入外部运行时</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="dim tiny">本表结论来自 <code>docs/04-development.md</code> §1；<b>没有框架、没有打包器、没有后端、没有数据库</b>。</p>
+      </div>
+    </section>
+
+    <!-- ============ 内容量级 ============ -->
+    <section class="sec" id="content">
+      <h2>内容量级与数值</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>各门类条目数</h3>
+          <div class="chart-box"><canvas id="chartContent" height="250"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>难度曲线（中立小人 / 敌军总人数 / 金币）</h3>
+          <div class="chart-box"><canvas id="chartCurve" height="250"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <div class="tabs" id="contentTabs">
+          <button class="tab active" data-pane="pane-levels">关卡（<span data-fact="content.levels"></span>）</button>
+          <button class="tab" data-pane="pane-skills">技能（<span data-fact="content.skills"></span>）</button>
+          <button class="tab" data-pane="pane-buffs">增益（<span data-fact="content.buffs"></span>）</button>
+          <button class="tab" data-pane="pane-skins">皮肤（<span data-fact="content.skins"></span>）</button>
+          <button class="tab" data-pane="pane-achv">成就（<span data-fact="content.achievements"></span>）</button>
+        </div>
+        <div class="pane active" id="pane-levels"><div class="table-wrap" data-table="levels"></div></div>
+        <div class="pane" id="pane-skills"><div class="table-wrap" data-table="skills"></div></div>
+        <div class="pane" id="pane-buffs"><div class="table-wrap" data-table="buffs"></div></div>
+        <div class="pane" id="pane-skins"><div class="table-wrap" data-table="skins"></div></div>
+        <div class="pane" id="pane-achv"><div class="table-wrap" data-table="achievements"></div></div>
+      </div>
+
+      <div class="card">
+        <h3>无尽模式的生成规则</h3>
+        <p>关卡对象由纯函数 <code>makeEndlessStage(n)</code> 按层数程序化生成（<code>js/config.js</code>）：
+          棋盘逐层扩大但<b>有上限</b>，敌军数量与基数随层递增。</p>
+        <div class="table-wrap">
+  <table class="tbl">
+            <thead><tr><th>项</th><th>公式</th></tr></thead>
+            <tbody>
+              <tr><td>棋盘增长</td><td><code>grown = min(n − 1, 14)</code> → <code>w = 3000 + grown × 110</code>，<code>h = 2200 + grown × 80</code></td></tr>
+              <tr><td>敌军支数</td><td><code>min(2 + ⌊(n − 1) / 2⌋, 7)</code></td></tr>
+              <tr><td>敌军人数基数</td><td><code>6 + (n − 1) × 4</code></td></tr>
+              <tr><td>成绩记录</td><td>不写星级，更新 <code>stats.endlessBest</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="dim tiny">公式逐条摘自 <code>js/config.js</code> 的 <code>makeEndlessStage()</code> 与 <code>docs/04-development.md</code> §5。</p>
+      </div>
+    </section>
+
+    <!-- ============ 目录结构 ============ -->
+    <section class="sec" id="tree">
+      <h2>目录结构</h2>
+      <p class="sec-note">整棵树由 <code>npm run overview:data</code> 现场遍历文件系统生成，<b>行数按换行口径统计</b>，与实际仓库一致。</p>
+      <div class="card wide">
+        <div class="tree-tools">
+          <button class="btn-mini" data-tree="expand">全部展开</button>
+          <button class="btn-mini" data-tree="collapse">全部收起</button>
+        </div>
+        <div id="treeRoot" class="tree"></div>
+      </div>
+    </section>
+
+    <!-- ============ 快速开始 ============ -->
+    <section class="sec" id="start">
+      <h2>快速开始</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>本地运行</h3>
+          <div class="code" data-lang="bash"><pre>npm install        # 只装开发依赖 jsdom（首次）
+npm start          # http://localhost:8080
+PORT=3000 npm start        # 换端口
+npm test           # 端到端测试
+npm run docs:svg   # 重新生成 docs/ 下三张图
+npm run overview:data      # 重新生成本页数据</pre><button class="copy">复制</button></div>
+          <p class="dim tiny">也可以直接双击根目录 <code>index.html</code>；但部分浏览器限制 <code>file://</code> 下的 localStorage，进度会存不住，建议用上面的 http 方式。</p>
+        </div>
+        <div class="card">
+          <h3>页面脚本加载顺序（不可改）</h3>
+          <div class="code" data-lang="html"><pre data-snippet="scriptOrder"></pre></div>
+          <p><code>const</code> 在经典 script 之间共享全局词法环境，后面的文件依赖前面的全局常量 —— 换顺序会直接报错。</p>
+          <h3>启动一个对局（真实调用）</h3>
+          <div class="code" data-lang="js"><pre data-snippet="newGame"></pre><button class="copy" data-copy="newGame">复制</button></div>
+        </div>
+      </div>
+      <div class="card wide">
+        <h3>部署</h3>
+        <p>GitHub Pages <b>经典模式（legacy）</b>，发布源是 <code>main</code> 分支的<b>仓库根目录</b>（不是 <code>docs/</code>）：
+          <code>git push github main</code> 后自动构建发布，不需要 Actions，也不需要手动触发。
+          根目录保留 <code>.nojekyll</code> 以禁用 Jekyll 处理。</p>
+        <p class="tiny dim">本览页在站点上的地址：<code>&lt;站点根&gt;/project_overview/</code>；页内所有资源均为相对路径，子路径下不会 404。</p>
+      </div>
+    </section>
+
+    <!-- ============ API ============ -->
+    <section class="sec" id="api">
+      <h2>引擎 API</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3><code>MiniGame</code> 构造参数</h3>
+          <div class="table-wrap">
+  <table class="tbl">
+              <thead><tr><th>参数</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td><code>canvas</code></td><td>HTMLCanvasElement，主画布</td></tr>
+                <tr><td><code>minimap</code></td><td>可选，小地图 canvas</td></tr>
+                <tr><td><code>level</code></td><td>关卡配置对象</td></tr>
+                <tr><td><code>levelIndex</code></td><td>关卡下标，无尽模式传 <code>-1</code></td></tr>
+                <tr><td><code>world</code></td><td>可选 <code>{w,h}</code>，不传用 <code>CFG.world</code></td></tr>
+                <tr><td><code>run</code></td><td><code>{ mode, skillId, startCount, buffs, … }</code></td></tr>
+                <tr><td><code>controlMode</code></td><td><code>auto</code> / <code>joystick</code> / <code>follow</code></td></tr>
+                <tr><td><code>hooks</code></td><td>回调集合，见右表</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="tiny dim">对外方法：<code>start()</code> <code>pause()</code> <code>resume()</code> <code>destroy()</code> <code>useSkill()</code> <code>resize()</code></p>
+        </div>
+        <div class="card">
+          <h3>回调 hooks 与数据结构</h3>
+          <div class="table-wrap">
+  <table class="tbl">
+              <thead><tr><th>回调</th><th>触发时机</th></tr></thead>
+              <tbody>
+                <tr><td><code>onHud(data)</code></td><td>约每 0.1 秒节流推送，刷新 HUD</td></tr>
+                <tr><td><code>onWin(res)</code></td><td>达成关卡目标</td></tr>
+                <tr><td><code>onLose(res)</code></td><td>我方人数归零（<code>res.reason</code> 给原因）</td></tr>
+                <tr><td><code>onInput()</code></td><td>玩家首次触摸/点击，用于解锁音频</td></tr>
+                <tr><td><code>onLegionDown(L)</code></td><td>某支敌军被吃光</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3><code>Legion</code> 关键成员</h3>
+          <div class="table-wrap">
+  <table class="tbl">
+              <tbody>
+                <tr><td><code>units[]</code></td><td>单位数组，每项 <code>{x,y,vx,vy,ph,flash,temp,L}</code></td></tr>
+                <tr><td><code>cx,cy,cvx,cvy</code></td><td>军团「指挥官」位置与速度</td></tr>
+                <tr><td><code>radius</code></td><td>由人数推出圆盘半径 <code>blobRadius(count)</code></td></tr>
+                <tr><td><code>fx{}</code> / <code>skillCd</code></td><td>技能剩余秒数 / 冷却</td></tr>
+                <tr><td><code>ai</code></td><td><code>{c,sp,ag,react,t}</code>；<code>null</code> 表示不由 AI 驱动</td></tr>
+                <tr><td><code>sprites[]</code></td><td>预渲染精灵（炫彩皮肤为 7 张循环）</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>加内容示例：一个主线关卡（<code>js/config.js</code> 真实条目）</h3>
+        <div class="code" data-lang="js"><pre data-snippet="levelDef"></pre><button class="copy" data-copy="levelDef">复制</button></div>
+        <p class="tiny dim"><code>id</code> 必须与数组顺序一致（跳关逻辑用了 <code>LEVELS[id-1]</code>）。完整教程见 <code>docs/04-development.md</code> §4。</p>
+      </div>
+    </section>
+
+    <!-- ============ 测试与质量 ============ -->
+    <section class="sec" id="quality">
+      <h2>测试与质量</h2>
+      <div class="grid-3">
+        <div class="card kpi"><b data-count="test.sections"></b><span>端到端流程段数</span><p class="tiny dim">从主菜单一路点到失败/结算/无尽</p></div>
+        <div class="card kpi"><b data-count="test.asserts"></b><span>断言调用点</span><p class="tiny dim">含正向与反向吞噬、摇杆、多指、存档</p></div>
+        <div class="card kpi"><b data-count="test.checks"></b><span>界面校验项</span><p class="tiny dim">每项打印一条 ✓ 结果</p></div>
+      </div>
+      <div class="card wide">
+        <h3>测试怎么工作</h3>
+        <ol class="steps">
+          <li>用 jsdom 加载<b>真实 <code>index.html</code></b>，按 <code>&lt;script&gt;</code> 顺序执行全部游戏脚本；</li>
+          <li>给 Canvas 打桩（jsdom 无绘图能力），其余逻辑全部真跑；</li>
+          <li>模拟真实用户点击，遍历主菜单 / 关卡选择 / 商店 / 成就 / 说明 / 出征准备；</li>
+          <li>进入对局后验证：滑动控制、收编中立小人、<b>逐个吞噬（正向与反向）</b>、技能、暂停继续、通关结算与三选一、关卡推进、<b>无尽逐层扩大</b>、失败流程、商店购买、存档持久化；</li>
+          <li>捕获任何运行期 JS 错误，出现即判定失败。</li>
+        </ol>
+        <div class="warn">
+          <b>如实记录：存在一个已知抖动用例。</b>
+          「应为多帧逐个消耗，而非一次性吞并」依赖真实帧推进的墙钟时长 —— 当机器负载高、一批帧耗时超过
+          <em data-fact="mechanics.eatInterval"></em> 秒时，三次转移会落进同一个快照批次，断言就报 <code>递减次数=1</code>。
+          实测主干代码本身失败率约 2/6～3/4（与改动无关，同一断言）。判定方法：重跑两三次，且未触碰
+          <code>CFG.eat.interval</code> 相关逻辑即为抖动。修复方向：改为固定 dt 直接驱动 <code>update()</code>。
+        </div>
+        <p class="tiny dim">本项目<b>没有 CI 流水线、没有覆盖率统计</b>，因此本页不设相应板块（不留占位）。</p>
+      </div>
+    </section>
+
+    <!-- ============ 文档索引 ============ -->
+    <section class="sec" id="docs">
+      <h2>文档索引</h2>
+      <div class="card wide">
+        <div class="table-wrap" data-table="docs"></div>
+      </div>
+    </section>
+
+    <!-- ============ 贡献 ============ -->
+    <section class="sec" id="contrib">
+      <h2>参与贡献</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>流程</h3>
+          <ol class="steps">
+            <li>fork 后从 <code>main</code> 切 <code>feat/…</code> 或 <code>fix/…</code> 分支；</li>
+            <li>改完 <code>npm test</code> 必须通过；</li>
+            <li>提交信息用 Conventional Commits（中文描述可）；</li>
+            <li>在 <code>CHANGELOG.md</code> 的 <code>[Unreleased]</code> 追加条目；</li>
+            <li>开 PR 到 <code>main</code>，不直推主分支。</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3>红线与约束</h3>
+          <div class="danger">
+            <code data-fact="meta.saveKey"></code> 不许改 —— 它是 localStorage 键名，改了等于把所有玩家的金币、关卡进度、皮肤、成就瞬间清零。
+            产品改名、文案改词都不带动它（本项目更名时就是刻意保留）。
+          </div>
+          <ul class="ticks">
+            <li>运行时零依赖是卖点：不加框架 / 打包器 / CDN 脚本 / 图片音频素材。</li>
+            <li><code>CFG.eat.interval</code> 是本作存在理由，改回一次性吞并会被直接拒。</li>
+            <li>资源引用一律相对路径（站点部署在子路径下）。</li>
+            <li>图表不手写：改数值后跑 <code>npm run docs:svg</code> 与 <code>npm run overview:data</code>。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 许可与引用 ============ -->
+    <section class="sec" id="license">
+      <h2>许可证与引用</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3><span data-fact="meta.license"></span> 许可</h3>
+          <p>版权 © 2026 <span data-fact="meta.author"></span>。允许商用、修改、再分发，唯一要求是保留版权声明与许可声明。</p>
+          <p>仓库内<b>零二进制素材</b>：画面由 Canvas 绘制、音效由 WebAudio 实时合成，因此不存在第三方素材授权问题。</p>
+          <p class="tiny dim">全文见 <a href="../LICENSE" target="_blank" rel="noopener">LICENSE</a>；维护者名单见 <a href="../AUTHORS" target="_blank" rel="noopener">AUTHORS</a>。</p>
+        </div>
+        <div class="card">
+          <h3>引用格式</h3>
+          <div class="code" data-lang="bibtex"><pre id="bibtext"></pre><button class="copy" id="copyBib">复制</button></div>
+        </div>
+      </div>
+      <div class="card wide foot-links">
+        <a href="../README.md" target="_blank" rel="noopener">README</a>
+        <a href="../CONTRIBUTING.md" target="_blank" rel="noopener">CONTRIBUTING</a>
+        <a href="../CHANGELOG.md" target="_blank" rel="noopener">CHANGELOG</a>
+        <a href="../FAQ.md" target="_blank" rel="noopener">FAQ</a>
+        <a href="../SECURITY.md" target="_blank" rel="noopener">SECURITY</a>
+        <a href="https://github.com/LPK3215/salami-legion/issues" target="_blank" rel="noopener">报告问题</a>
+      </div>
+    </section>
+
+    <footer class="page-foot">
+      <span>蚕食军团（Salami Legion）项目全景观览 · 数据生成于 <b data-fact="meta.generatedAt"></b></span>
+      <span class="dim tiny">重跑 <code>npm run overview:data</code> 即可同步全部数字</span>
+    </footer>
+  </main>
+</div>
+
+<button class="to-top" id="toTop" title="返回顶部">↑</button>
+<div class="toast" id="toast"></div>
+
+<script src="./facts.js"></script>
+<script src="./charts.js"></script>
+<script src="./script.js"></script>
+
+<!--
+  生成工具：Qoder 智能体 + scripts/visualization/generate_overview_facts.mjs
+  生成时间：见页脚（数据由 npm run overview:data 现场从项目源码抽取）
+  依赖：Google Fonts 与 Chart.js 走 https:// CDN；Chart.js 不可用时页面自动降级为纯表格视图。
+-->
+</body>
+</html>

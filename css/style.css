@@ -125,6 +125,9 @@ body[data-screen="screen-game"]{overflow:hidden;}
   min-height:40px;
 }
 .tiny-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px;}
+/* 主菜单里的「项目介绍」是 <a> 形式的按钮（导航完全交给浏览器，不被 window.open 的返回值坑）：
+   与 button 版保持同排版、同居中，并且去掉链接下划线 */
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;}
 .btn-tiny.danger{color:#ff9aa6;}
 .btn-primary.big{font-size:20px;padding:18px 20px;}
 .btn.danger{color:#ff9aa6;}

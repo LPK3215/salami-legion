@@ -9,11 +9,15 @@
 [![live demo](https://img.shields.io/badge/live%20demo-GitHub%20Pages-ff6f61)](https://lpk3215.github.io/salami-legion/)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-| 入口 | 地址 |
-|---|---|
-| 🎮 在线试玩 | <https://lpk3215.github.io/salami-legion/>（发布源为 `main` 分支仓库根，push 即自动更新） |
-| 📦 仓库地址 | <https://github.com/LPK3215/salami-legion>（clone：`git clone https://github.com/LPK3215/salami-legion.git`） |
-| 📝 变更历史 | [CHANGELOG.md](CHANGELOG.md) ｜ 常见疑问：[FAQ.md](FAQ.md) ｜ 开发文档：[docs/](docs/01-gameplay.md) |
+| 入口 | 地址 | 该给谁看 |
+|---|---|---|
+| 🎮 在线试玩（**推荐分享这个**） | <https://lpk3215.github.io/salami-legion/>（发布源为 `main` 分支仓库根，push 即自动更新） | 想玩的人 —— 打开就是游戏本体，零下载零登录 |
+| 📊 项目全景观览 | <https://lpk3215.github.io/salami-legion/project_overview/> | 想了解“它能干什么、怎么实现的”的人（本地可直接双击根目录 `project_overview.html`） |
+| 📦 仓库地址 | <https://github.com/LPK3215/salami-legion>（clone：`git clone https://github.com/LPK3215/salami-legion.git`） | 想读代码 / 提 PR 的人 |
+| 📝 变更历史 | [CHANGELOG.md](CHANGELOG.md) ｜ 常见疑问：[FAQ.md](FAQ.md) ｜ 开发文档：[docs/](docs/01-gameplay.md) | — |
+
+> 两个页面**互相连通**：游戏主菜单底部「项目介绍」→ 览页（新标签，不丢进度）；
+> 览页 Hero 与正文中段各有「立即开玩」→ 游戏本体。根路径始终是游戏，因为分享链接的第一动作是“玩”而不是“读”。
 
 > 徽章里 `version` / `language` / `jsdom` / `commit activity` 是 shields.io **动态端点**，实时读仓库；
 > `license` 与 `runtime deps` 写死，它们的真源分别是 [LICENSE](LICENSE) 与 `package.json`（无 `dependencies` 字段）。
@@ -77,6 +81,7 @@ npm run docs:svg
 
 - 暂停：`Esc` 或 `P`（也可以点右上角按钮）；切到后台自动暂停。
 - 不习惯摇杆？主菜单点 **「操作」** 可切换为「跟随手指 / 指针：点哪走哪」。
+- 想了解机制与数值？主菜单底部的 **「项目介绍」** 会打开全景观览页（不影响当前进度）。
 - 完整方案与参数见 [docs/05-controls-and-layout.md](docs/05-controls-and-layout.md)。
 
 ---
@@ -104,6 +109,7 @@ npm run docs:svg
 | [docs/03-systems.md](docs/03-systems.md) | **系统详解**：技能、增益、三选一奖励、成就、商店、存档 |
 | [docs/04-development.md](docs/04-development.md) | **开发者文档**：架构、文件职责、引擎 API、如何加关卡、测试与部署 |
 | [docs/05-controls-and-layout.md](docs/05-controls-and-layout.md) | **跨端操作与布局**：鼠标/键盘/虚拟摇杆、多指处理、屏幕分区与断点适配 |
+| [project_overview/](project_overview/index.html) | **项目全景观览页**：单页仪表盘（架构、机制对比、数值表格、目录树、API、文档索引），本地双击根目录 `project_overview.html` 即可打开；线上：<https://lpk3215.github.io/salami-legion/project_overview/>。页面数字由 `npm run overview:data` 从源码抽取，不手抄 |
 
 ---
 
@@ -142,7 +148,7 @@ npm test                      # jsdom 端到端测试：真实点击全部界面
 - 存档：localStorage（键名 `mini_legion_save_v1`，与产品名解耦，改名不动键）
 - 服务：Node.js 零依赖静态服务器
 - 测试：Node.js + jsdom
-- 文档图表：`scripts/visualization/` 下的 Node 生成器输出 SVG（仅用内置模块，不引入外部运行时）
+- 文档图表：`scripts/visualization/` 下的 Node 生成器输出 SVG 与览页数据 facts.js（仅用内置模块，不引入外部运行时）
 
 > 本项目**没有后端服务、没有数据库**，是纯浏览器端游戏。
 
@@ -169,9 +175,12 @@ salami-legion/
 │       ├── lib_load_facts.mjs              共享层：从真源读全部数字
 │       ├── generate_architecture_svg.mjs    → docs/architecture.svg
 │       ├── generate_attrition_mechanic_svg.mjs → docs/attrition-mechanic.svg
-│       └── generate_content_scale_svg.mjs   → docs/content-scale.svg
+│       ├── generate_content_scale_svg.mjs   → docs/content-scale.svg
+│       └── generate_overview_facts.mjs      → project_overview/facts.js
 ├── test/dom.test.js        jsdom 端到端测试（564 行）
 ├── docs/                   5 篇玩法与开发文档 + 3 张生成的 SVG（见上方文档索引与「一图看懂」）
+├── project_overview/        项目全景观览页（index.html + style.css + script.js + charts.js + 生成的 facts.js）
+├── project_overview.html    根目录入口（meta refresh 跳转）
 ├── .nojekyll               告知 GitHub Pages 不要走 Jekyll
 ├── .cnb.yml                CNB 云开发环境配置
 ├── LICENSE · CONTRIBUTING.md · CHANGELOG.md · FAQ.md
