@@ -1,0 +1,26 @@
+# ==========================================================
+#   编辑器统一约定（对齐现有代码实测风格：2 空格、零制表符、LF、UTF-8）
+#   不打算引入格式化工具，这里只做「新改动不要跑偏」的兜底。
+# ==========================================================
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Markdown 行尾两空格是换行语法，不能裁
+[*.md]
+trim_trailing_whitespace = false
+
+# shell 脚本必须是 LF，否则 Linux/macOS 下无法执行
+[*.sh]
+end_of_line = lf
+
+# 生成的锁文件不手动编辑，忽略格式检查
+[package-lock.json]
+insert_final_newline = unset
+trim_trailing_whitespace = unset

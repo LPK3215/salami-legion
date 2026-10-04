@@ -3,13 +3,24 @@
   "version": "1.0.0",
   "private": true,
   "description": "蚕食军团（Salami Legion）—— 逐个单位吞噬的休闲军团对战游戏（纯前端 Canvas，零运行时依赖）",
+  "license": "MIT",
+  "author": "LPK3215 <17538703215@163.com>",
+  "homepage": "https://lpk3215.github.io/salami-legion/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LPK3215/salami-legion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LPK3215/salami-legion/issues"
+  },
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test/dom.test.js"
+    "test": "node test/dom.test.js",
+    "docs:svg": "node scripts/visualization/generate_architecture_svg.mjs && node scripts/visualization/generate_attrition_mechanic_svg.mjs && node scripts/visualization/generate_content_scale_svg.mjs"
   },
-  "keywords": ["game", "io", "canvas", "browser"],
+  "keywords": ["game", "io", "canvas", "browser", "casual", "attrition", "single-player"],
   "engines": {
     "node": ">=18"
   },

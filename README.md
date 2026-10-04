@@ -1,5 +1,23 @@
 # 蚕食军团（Salami Legion）
 
+[![version](https://img.shields.io/github/package-json/v/LPK3215/salami-legion)](package.json)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![language](https://img.shields.io/github/languages/top/LPK3215/salami-legion)](#技术栈)
+[![runtime deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen)](#技术栈)
+[![jsdom](https://img.shields.io/github/package-json/dependency-version/LPK3215/salami-legion/dev/jsdom)](package.json)
+[![commit activity](https://img.shields.io/github/commit-activity/m/LPK3215/salami-legion)](https://github.com/LPK3215/salami-legion/graphs/commit-activity)
+[![live demo](https://img.shields.io/badge/live%20demo-GitHub%20Pages-ff6f61)](https://lpk3215.github.io/salami-legion/)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+| 入口 | 地址 |
+|---|---|
+| 🎮 在线试玩 | <https://lpk3215.github.io/salami-legion/>（发布源为 `main` 分支仓库根，push 即自动更新） |
+| 📦 仓库地址 | <https://github.com/LPK3215/salami-legion>（clone：`git clone https://github.com/LPK3215/salami-legion.git`） |
+| 📝 变更历史 | [CHANGELOG.md](CHANGELOG.md) ｜ 常见疑问：[FAQ.md](FAQ.md) ｜ 开发文档：[docs/](docs/01-gameplay.md) |
+
+> 徽章里 `version` / `language` / `jsdom` / `commit activity` 是 shields.io **动态端点**，实时读仓库；
+> `license` 与 `runtime deps` 写死，它们的真源分别是 [LICENSE](LICENSE) 与 `package.json`（无 `dependencies` 字段）。
+
 一款休闲 IO 风格的**军团吞噬对战**游戏。你操控一整支彩色小人军团在地图上滑行，
 碰到的中立小人会自动加入你，撞上别的军团则会爆发战斗。
 
@@ -8,6 +26,36 @@
 才是这个游戏真正的技术含量。
 
 同时本作还叠加了市面同类产品少见的**关卡推进 + 技能 + 三选一奖励 + 金币皮肤成就**成长体系。
+
+---
+
+## 一图看懂
+
+下面三张图由仓库内脚本生成（**图里的数字运行时从真源读取，不是手写**），改代码后重跑即可同步：
+
+```bash
+npm run docs:svg
+```
+
+### 架构与数据流
+
+![架构与数据流](./docs/architecture.svg)
+
+### 核心差异：逐个单位吞噬
+
+![逐个单位吞噬 vs 一次性吞并](./docs/attrition-mechanic.svg)
+
+### 内容量级
+
+![内容量级](./docs/content-scale.svg)
+
+### 界面截图
+
+<!-- TODO: 截图待补充 -->
+
+主菜单 / 出征准备 / 对局 / 结算三选一 / 皮肤商店 / 无尽高层 的实际画面。本项目**仓库内不存放任何
+二进制素材**（画面由 Canvas 绘制、音效由 WebAudio 合成），因此截图不入库，
+直接访问[在线试玩地址](https://lpk3215.github.io/salami-legion/)查看实时效果。
 
 ---
 
@@ -94,5 +142,60 @@ npm test                      # jsdom 端到端测试：真实点击全部界面
 - 存档：localStorage（键名 `mini_legion_save_v1`，与产品名解耦，改名不动键）
 - 服务：Node.js 零依赖静态服务器
 - 测试：Node.js + jsdom
+- 文档图表：`scripts/visualization/` 下的 Node 生成器输出 SVG（仅用内置模块，不引入外部运行时）
 
 > 本项目**没有后端服务、没有数据库**，是纯浏览器端游戏。
+
+---
+
+## 仓库结构
+
+行数与内容数量均由 `scripts/visualization/lib_load_facts.mjs` 口径统计（按换行计，同 `wc -l`），供定位改动位置参考。
+
+```text
+salami-legion/
+├── index.html             页面骨架与各屏 DOM（266 行）
+├── css/style.css          全部样式、断点适配、动画（561 行）
+├── js/
+│   ├── config.js          数值与内容真源：关卡/技能/增益/皮肤/成就（257 行）
+│   ├── engine.js          核心引擎：逐个吞噬、编队移动、AI、渲染、输入（1723 行）
+│   ├── ui.js              界面流转与交互（783 行）
+│   ├── save.js            localStorage 存档读写（98 行）
+│   └── audio.js           WebAudio 实时合成音效（53 行）
+├── server.js              零依赖静态服务器（126 行，仅本地/云开发预览用）
+├── scripts/
+│   ├── start.sh            CNB 云开发环境幂等启动脚本
+│   └── visualization/     图表生成器（仅用 Node 内置模块）
+│       ├── lib_load_facts.mjs              共享层：从真源读全部数字
+│       ├── generate_architecture_svg.mjs    → docs/architecture.svg
+│       ├── generate_attrition_mechanic_svg.mjs → docs/attrition-mechanic.svg
+│       └── generate_content_scale_svg.mjs   → docs/content-scale.svg
+├── test/dom.test.js        jsdom 端到端测试（564 行）
+├── docs/                   5 篇玩法与开发文档 + 3 张生成的 SVG（见上方文档索引与「一图看懂」）
+├── .nojekyll               告知 GitHub Pages 不要走 Jekyll
+├── .cnb.yml                CNB 云开发环境配置
+├── LICENSE · CONTRIBUTING.md · CHANGELOG.md · FAQ.md
+├── SECURITY.md · CODE_OF_CONDUCT.md · AUTHORS
+└── .gitignore · .gitattributes · .editorconfig · package.json · package-lock.json
+```
+
+> 部署说明：GitHub Pages **经典模式（legacy）**，发布源是 **`main` 分支的仓库根目录**
+> （不是 `docs/`，`docs/` 放的是开发文档）。改动 push 到 `main` 后自动构建发布，
+> 不依赖 GitHub Actions。
+
+## 参与贡献
+
+玩法、数值、UI 都欢迎改，但请先读 [CONTRIBUTING.md](CONTRIBUTING.md) —— 里面有一条红线：
+**存档键 `mini_legion_save_v1` 不许改**，改了等于把全部玩家的金币、关卡进度、皮肤、成就清零。
+
+- 贡献流程与代码约束：[CONTRIBUTING.md](CONTRIBUTING.md)
+- 变更历史：[CHANGELOG.md](CHANGELOG.md)
+- 常见问题：[FAQ.md](FAQ.md)
+- 安全漏洞报告（请勿开公开 Issue）：[SECURITY.md](SECURITY.md)
+- 行为准则：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
+## 许可与作者
+
+- [MIT](LICENSE) 许可证，版权 © 2026 LPK3215
+- 作者与维护者：[AUTHORS](AUTHORS)
+- 无外部素材：画面由 Canvas 绘制，音效由 WebAudio 实时合成

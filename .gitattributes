@@ -1,0 +1,37 @@
+# ==========================================================
+#   行尾与差异规则
+#   背景：本机 core.autocrlf=true，工作区是 CRLF、仓库内是 LF。
+#   不加规则时，用编辑器写出的 CRLF 内容可能被原样提交进仓库，
+#   其中 scripts/start.sh 一旦变成 CRLF，在 Linux/macOS 下 bash 会直接报错。
+#   这里把规则钉死，避免依赖每个人的 git 全局配置。
+# ==========================================================
+
+# 默认：能识别的文本统一按 LF 存入仓库
+* text=auto eol=lf
+
+# 必须保持 LF 的脚本（bash 拒绝 CRLF 的 shebang 行尾）
+*.sh   text eol=lf
+
+# 显式声明源码与文档为文本（防止被猜成 binary）
+*.html text eol=lf
+*.css  text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+
+# 生成物：不参与语言统计、diff 折叠，看改动去 package.json
+package-lock.json text eol=lf linguist-generated -diff
+
+# 文档目录不计入语言占比（代码统计只反映真实实现）
+docs/**  linguist-documentation
+
+# 本项目无音频/图片资源（音效由 WebAudio 实时合成），以下为防御性规则
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.mp3    binary
+*.woff   binary
+*.woff2  binary

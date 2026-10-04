@@ -5,3 +5,20 @@ npm-debug.log*
 .server.log
 .server.pid
 .codebuddy/
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Windows 系统产物
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# 本地覆盖配置与临时文件（不提交）
+*.local
+.env.local
+tmp/
+
