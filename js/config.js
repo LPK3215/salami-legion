@@ -178,32 +178,46 @@ const LEVELS = [
 
 /* ---------------- 无尽模式：一次连续对局，没有「层」 ----------------
    规则：军团人数只增不减（不会重置），每满 ENDLESS.step 人弹一次三选一奖励，
-   选完立刻接着打；只有全军覆没才会结束。敌军规模随我方人数与存活时间持续递增。 */
+   选完立刻接着打；只有全军覆没才会结束。敌军规模随我方人数与存活时间持续递增。
+
+   地图不是固定尺寸的棋盘，而是**以玩家为中心的圆形战场**：
+   每帧按 endlessViewRadius() 算出半径，引擎把世界矩形重算成以玩家为圆心、
+   边长 2R 的方框，并在框内持续生成 / 回收中立小人与装饰物 ——
+   所以战场是「跟着玩家走、随规模变大」的动态地图，没有 3x3 / 4x4 这类写死尺寸。 */
 const ENDLESS = {
   step: 50,                          // 每增长 50 人 → 三选一奖励
-  baseWorld: { w: 3200, h: 2400 },   // 起始棋盘
-  maxWorld:  { w: 4800, h: 3600 },   // 棋盘上限
-  worldGrow: { w: 120, h: 90 },      // 每过一个里程碑扩大的尺寸
   maxEnemies: 7,                     // 场上敌军数量上限
   ratioMin: 0.30,                    // 最弱敌军人数 / 我方人数
   ratioMax: 0.85,                    // 最强敌军人数 / 我方人数（仍略低于我方，保证能吃）
   aiCapRatio: 0.95,                  // 敌军收编中立小人的人数上限系数
+
+  /* ---- 动态地图（以玩家为中心） ---- */
+  viewR: 1500,                       // 战场半径基准
+  viewRPerPop: 1.6,                  // 人数每多 1 人，半径增加的像素
+  viewRMin: 1400,                    // 半径下限（再小就装不下屏幕）
+  viewRMax: 2600,                    // 半径上限
+  cullPad: 1.18,                     // 超出「半径 × 该系数」的中立小人 / 装饰物被回收
+  spawnInner: 0.42,                  // 中立小人补充带：内圈（半径占比，保证在视野外）
+  spawnOuter: 0.96,                  // 中立小人补充带：外圈
+  enemyNear: 0.50,                   // 敌军登场距离：内圈（半径占比）
+  enemyFar: 0.80,                    // 敌军登场距离：外圈
+  enemyLeash: 0.78,                  // 敌军逃到这个半径占比后改为绕圈，不再往外跑
+  enemyDespawn: 1.25,                // 敌军跑出「半径 × 该系数」视为溃逃，回收后换新
 };
 
-/* 按当前人数给出无尽棋盘尺寸（随里程碑逐级扩大，有上限） */
-function endlessWorldFor(count) {
-  const steps = Math.floor(Math.max(0, count) / ENDLESS.step);
-  return {
-    w: Math.min(ENDLESS.maxWorld.w, ENDLESS.baseWorld.w + steps * ENDLESS.worldGrow.w),
-    h: Math.min(ENDLESS.maxWorld.h, ENDLESS.baseWorld.h + steps * ENDLESS.worldGrow.h),
-  };
+/* 动态战场半径：随我方规模持续变大（有上下限） */
+function endlessViewRadius(count) {
+  const n = Math.max(0, count || 0);
+  return Math.max(ENDLESS.viewRMin,
+    Math.min(ENDLESS.viewRMax, ENDLESS.viewR + n * ENDLESS.viewRPerPop));
 }
 
 /* 第 index 支敌军的目标人数：随我方规模递增，且即使原地不动也会随时间慢慢加压 */
 function endlessEnemyTarget(pop, time, index, total) {
   const span = total > 1 ? index / (total - 1) : 0;
   const ratio = ENDLESS.ratioMin + (ENDLESS.ratioMax - ENDLESS.ratioMin) * span;
-  const creep = 8 + Math.max(0, time) * 0.28;
+  // 起步阶段轻一点（开局只有 3 人），时间越久底噪越高，逼着玩家不能原地苟
+  const creep = 5 + Math.max(0, time) * 0.22;
   return Math.max(4, Math.round(Math.max(creep, Math.max(10, pop) * ratio)));
 }
 
@@ -217,23 +231,27 @@ function endlessEnemyStats(pop) {
   };
 }
 
-/* 无尽模式的起始关卡对象（结构与主线关卡一致，额外带 endless / goal.type='endless'） */
+/* 无尽模式的起始关卡对象（结构与主线关卡一致，额外带 endless / goal.type='endless'）
+   world 只是「开局那一帧的战场框」，之后每帧由引擎按 endlessViewRadius() 以玩家为中心重算 */
 function makeEndlessLevel() {
   const st = endlessEnemyStats(10);
-  const enemies = [];
-  for (let i = 0; i < 3; i++) {
-    enemies.push({ c: 6 + i * 4, sp: st.sp, ag: st.ag, react: st.react });
-  }
+  // 开局两支小队（对标主线第 1~2 关的强度），随后由 endlessEnemyTarget() 按我方规模接管
+  const enemies = [
+    { c: 5, sp: st.sp, ag: st.ag, react: st.react },
+    { c: 6, sp: st.sp, ag: st.ag, react: st.react },
+  ];
+  const R = endlessViewRadius(10);
   return {
     id: 'E',
     name: '无尽模式',
     endless: true,
+    dynamicWorld: true,             // 以玩家为中心持续重算的动态地图
     goal: { type: 'endless', step: ENDLESS.step },
     neutral: 180,
     par: 0,
     gold: 0,
     coins: 30,
-    world: endlessWorldFor(0),
+    world: { w: R * 2, h: R * 2 },
     enemies: enemies,
     tip: '人数只增不减：每满 ' + ENDLESS.step + ' 人弹出一次三选一，敌军会随你的规模越滚越强',
   };

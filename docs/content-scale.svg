@@ -10,7 +10,7 @@
 <rect width="1080" height="602" fill="url(#bg3)"/>
 <text x="30" y="46" font-size="24" font-weight="800" fill="url(#ttl3)">内容量级 · v1.0.0</text>
 <text x="30" y="74" font-size="13" fill="rgba(234,241,255,.62)">条长与数字运行时取自 js/config.js 的数组长度；右侧标注即对应的数组名。加内容后重跑 npm run docs:svg 即自动同步</text>
-<text x="30" y="100" font-size="12.5" fill="rgba(234,241,255,.62)">关卡挑战 13 关打完即通关 ｜ 无尽挑战没有层也没有终点（人数只增不减，每满 50 人暂停三选一，敌军随规模变强、棋盘随之扩大）</text>
+<text x="30" y="100" font-size="12.5" fill="rgba(234,241,255,.62)">关卡挑战 13 关打完即通关 ｜ 无尽挑战没有层也没有终点（人数只增不减，每满 50 人暂停三选一；地图以玩家为中心动态生成、敌军随规模实时变强）</text>
   <line x1="320.6" y1="130" x2="320.6" y2="538" stroke="rgba(234,241,255,.62)" stroke-opacity=".14"/>
   <text x="320.6" y="122" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.62)">2</text>
   <line x1="417.1" y1="130" x2="417.1" y2="538" stroke="rgba(234,241,255,.62)" stroke-opacity=".14"/>

@@ -66,7 +66,8 @@ window.HTMLElement.prototype.getBoundingClientRect = function () { return RECT; 
 const harness = `
 (async () => {
   // eval 的作用域与浏览器 <script> 不同，显式取出页面脚本暴露的全局
-  const { UI, Save, LEVELS, SKINS, SKILLS, SKILL_LIST, START_OPTIONS, ACHIEVEMENTS } = window.__APP__;
+  const { UI, Save, LEVELS, SKINS, SKILLS, SKILL_LIST, START_OPTIONS, ACHIEVEMENTS,
+          ENDLESS, endlessViewRadius, CFG, MiniGame } = window.__APP__;
   const log = [];
   const ok = (m) => log.push('  ✓ ' + m);
   const assert = (c, m) => { if (!c) throw new Error('断言失败: ' + m); };
@@ -84,7 +85,12 @@ const harness = `
   });
   // 固定步长推进模拟：rAF 的真实步长在不同机器上波动很大，
   // 会让「逐个吞噬」这类依赖时间的断言变得随机，这里用固定 dt 保证可复现。
-  const ticks = (game, n, dt) => { for (let i = 0; i < n; i++) game.update(dt || 0.02); };
+  // 同时调用 render（镜头跟随/缩放是在 render 里推进的），否则镜头会停在旧位置，
+  // 「屏幕坐标 → 世界坐标」这类断言就会失真。
+  const ticks = (game, n, dt) => {
+    const d = dt || 0.02;
+    for (let i = 0; i < n; i++) { game.update(d); game.render(d); }
+  };
 
   try {
     /* ========== 1. 等待 load，等同一个真实浏览器页面 ========== */
@@ -174,6 +180,26 @@ const harness = `
     assert(g.legions.length >= 2, '应存在敌军');
     assert(g.neutrals.length > 30, '中立小人过少: ' + g.neutrals.length);
     ok('进入对局：我方 ' + startCount + ' 人 / ' + (g.legions.length - 1) + ' 支敌军 / ' + g.neutrals.length + ' 个中立小人');
+
+    // 关卡模式必须画出地图边界（正向对照：证明下面的「0 次」不是探针失灵）
+    const countBounds = (game) => {
+      let rects = 0, bigArcs = 0;
+      const realRect = game.ctx.strokeRect, realArc = game.ctx.arc;
+      game.ctx.strokeRect = function () { rects++; };
+      game.ctx.arc = function (x, y, r) { if (r > 600) bigArcs++; };   // 大半径圆环（可能被误读成场地圈）
+      game.render(0.016);
+      game.ctx.strokeRect = realRect; game.ctx.arc = realArc;
+      return { rects, bigArcs };
+    };
+    const bCamp = countBounds(g);
+    assert(bCamp.rects === 1 && bCamp.bigArcs === 1,
+      '关卡模式应绘制 1 条地图边界 + 1 个装饰圆环，实际 ' + bCamp.rects + ' / ' + bCamp.bigArcs);
+
+    // 后面的移动/摇杆/键盘用例会让军团顺路收编中立小人，有可能提前撞到第 1 关目标（15 人）
+    // 从而让对局提前结束、后续对局内断言全部失去意义。这里先把目标抬到不可能达到的值，
+    // 到第 12 段要故意通关时再还原（原目标值由该段自己读取）。
+    const reachGoal = g.level.goal.type === 'reach' ? g.level.goal.val : 0;
+    if (reachGoal) g.level.goal.val = 99999;
 
     /* ========== 5. 滑动控制 ========== */
     const p = g.player;
@@ -395,6 +421,7 @@ const harness = `
     ok('暂停 / 继续正常');
 
     /* ========== 12. 通关 + 三选一奖励 ========== */
+    if (reachGoal) g.level.goal.val = reachGoal;      // 还原第 1 关真实目标
     const goal = g.level.goal.type === 'reach' ? g.level.goal.val : 0;
     while (goal && p.count < goal) p.addUnit(p.cx, p.cy);
     if (!goal) {
@@ -464,7 +491,75 @@ const harness = `
     assert(ge.level.goal.type === 'endless', '无尽模式目标类型应为 endless，实际 ' + ge.level.goal.type);
     const STEP = ge.level.goal.step;
     const e1WorldW = ge.world.w;
-    ok('无尽模式启动：单局连续对局 · 每 ' + STEP + ' 人一次三选一 · 棋盘 ' + ge.world.w + '×' + ge.world.h);
+
+    /* ---- 动态地图：世界框必须是以玩家为圆心的实时战场，不是写死尺寸的棋盘 ---- */
+    assert(ge.dynWorld === true, '无尽模式应启用动态地图（以玩家为中心）');
+    const wc0 = ge.world.x + ge.world.w / 2, hc0 = ge.world.y + ge.world.h / 2;
+    assert(Math.abs(wc0 - ge.player.cx) < 2 && Math.abs(hc0 - ge.player.cy) < 2,
+      '战场中心未跟随玩家：中心(' + wc0.toFixed(0) + ',' + hc0.toFixed(0) +
+      ') 玩家(' + ge.player.cx.toFixed(0) + ',' + ge.player.cy.toFixed(0) + ')');
+    assert(endlessViewRadius(400) > endlessViewRadius(10), '战场半径应随我方规模变大');
+
+    // 把玩家瞬移一段距离，战场应整体跟着走，且内容持续围绕玩家生成
+    const jumpX = 900, jumpY = -600;
+    const beforeX = ge.world.x, beforeY = ge.world.y;
+    ge.player.cx += jumpX; ge.player.cy += jumpY;
+    ge.player.target.x = ge.player.cx; ge.player.target.y = ge.player.cy;
+    ticks(ge, 3);
+    const dxWorld = ge.world.x - beforeX, dyWorld = ge.world.y - beforeY;
+    assert(Math.abs(dxWorld - jumpX) < 3 && Math.abs(dyWorld - jumpY) < 3,
+      '玩家移动后战场未整体跟随：位移(' + dxWorld.toFixed(0) + ',' + dyWorld.toFixed(0) +
+      ') 期望(' + jumpX + ',' + jumpY + ')');
+    const arenaR = ge.dynR;
+    let farthest = 0;
+    for (const N of ge.neutrals) {
+      const d = Math.sqrt((N.x - ge.player.cx) ** 2 + (N.y - ge.player.cy) ** 2);
+      if (d > farthest) farthest = d;
+    }
+    assert(ge.neutrals.length > 0, '动态战场上应持续存在中立小人');
+    assert(farthest <= arenaR * ENDLESS.cullPad + 4,
+      '中立小人不应留在战场之外：最远 ' + farthest.toFixed(0) + ' > 边界 ' + (arenaR * ENDLESS.cullPad).toFixed(0));
+    assert(ge.decor.length > 0, '动态战场上应持续存在装饰物');
+    // 动态战场没有墙：跑到「旧边界」之外不应被夹回来
+    assert(Math.abs(ge.player.cx - (wc0 + jumpX)) < 50, '动态战场不应把玩家夹在旧边界内');
+    assert(ge.status === 'playing', '动态战场不应因越界中断对局');
+
+    // 再远也必须跟得上：连续朝一个方向跑很远，不能被任何「隐形墙」拦住
+    // （镜头是连续跟随的，所以这里让镜头先追上，模拟真实操作）
+    ge.player.cx += 7200;
+    ge.player.target.x = ge.player.cx; ge.player.target.y = ge.player.cy;
+    for (let i = 0; i < 60; i++) ticks(ge, 1);
+    const farFromOrigin = Math.abs(ge.player.cx - wc0);
+    assert(farFromOrigin > 7000, '玩家应能连续跑出很远，实际位移 ' + farFromOrigin.toFixed(0));
+    assert(Math.abs(ge.world.x + ge.world.w / 2 - ge.player.cx) < 3, '跑远后战场中心应仍然贴着玩家');
+
+    // 对玩家零限制：屏幕上任意一点（含四角）都必须能直接指到，不能被夹到更近的地方
+    ge.pointer.active = true;
+    ge.pointer.x = 1198; ge.pointer.y = 2;
+    ticks(ge, 1);
+    const corner = ge.screenToWorld(1198, 2);
+    assert(corner.x >= ge.world.x && corner.x <= ge.world.x + ge.world.w &&
+      corner.y >= ge.world.y && corner.y <= ge.world.y + ge.world.h,
+      '屏幕四角必须落在战场框内（战场半径应永远覆盖整个视野）');
+    assert(Math.abs(ge.player.target.x - corner.x) < 2 && Math.abs(ge.player.target.y - corner.y) < 2,
+      '动态战场限制了指哪走哪：target(' + ge.player.target.x.toFixed(0) + ',' + ge.player.target.y.toFixed(0) +
+      ') 期望(' + corner.x.toFixed(0) + ',' + corner.y.toFixed(0) + ')');
+    ge.pointer.active = false;
+    ge.player.target.x = ge.player.cx; ge.player.target.y = ge.player.cy;
+    ticks(ge, 1);
+    ok('动态战场对玩家零限制：跑出 ' + farFromOrigin.toFixed(0) + 'px 不被拦 · 屏幕四角都能直接指到（无墙、也无软边界）');
+
+    // 无尽模式渲染一帧：既不能有硬边界描边，也不能有会被误读成「场地圈」的大圆
+    const bEnd = countBounds(ge);
+    assert(bEnd.rects === 0 && bEnd.bigArcs === 0,
+      '无尽模式渲染时不应出现任何边界/场地圈，实际边界 ' + bEnd.rects + ' 条 / 大圈 ' + bEnd.bigArcs + ' 个');
+    ok('动态地图：以玩家为中心 · 半径 ' + Math.round(arenaR) + 'px · 随规模变化' +
+       ' · 中立小人 ' + ge.neutrals.length + ' 个全部在战场内（最远 ' + farthest.toFixed(0) + 'px）');
+
+    ge.player.cx -= jumpX; ge.player.cy -= jumpY;
+    ge.player.target.x = ge.player.cx; ge.player.target.y = ge.player.cy;
+    ticks(ge, 3);
+    ok('无尽模式启动：单局连续对局 · 每 ' + STEP + ' 人一次三选一 · 战场 ' + ge.world.w + '×' + ge.world.h);
 
     // 达到第一个里程碑 → 暂停并弹出三选一
     while (ge.player.count < STEP) ge.player.addUnit(ge.player.cx, ge.player.cy);
@@ -493,23 +588,39 @@ const harness = `
     assert(ge.player.count >= countBefore, '继续后人数不应重置（' + countBefore + ' → ' + ge.player.count + '）');
     assert(ge.nextMilestone === STEP * 2, '下一个里程碑应为 ' + (STEP * 2) + '，实际 ' + ge.nextMilestone);
 
-    // 第二个里程碑同样触发，且棋盘随规模扩大
+    // 第二个里程碑同样触发，且动态战场随规模继续扩大
     while (ge.player.count < STEP * 2) ge.player.addUnit(ge.player.cx, ge.player.cy);
     await frames(30);
     assert(active('screen-reward'), '第二个里程碑未弹出奖励页');
-    assert(ge.world.w >= e1WorldW, '棋盘不应缩小');
-    ok('里程碑推进：' + (STEP * 2) + ' 人 · 棋盘 ' + ge.world.w + '×' + ge.world.h +
-       ' · 同一场对局人数累积不重置');
+    assert(ge.dynR >= arenaR, '战场半径不应缩小');
+    assert(ge.world.w >= e1WorldW, '战场不应缩小');
+    ok('里程碑推进：' + (STEP * 2) + ' 人 · 战场半径 ' + Math.round(ge.dynR) +
+       'px（框 ' + ge.world.w + '×' + ge.world.h + '）· 同一场对局人数累积不重置');
     click(document.querySelectorAll('#reward-cards .reward-card')[0], '无尽奖励卡2');
     click($('btn-reward-next'), 'btn-reward-next');
     await wait(120);
 
     assert(UI.run && UI.run.mode === 'endless', 'run.mode 应为 endless');
     assert(String($('hud-level').textContent).indexOf('无尽') >= 0, 'HUD 关卡标题未体现无尽');
+    assert(String($('hud-level').textContent).indexOf('战场半径') >= 0, 'HUD 应显示动态战场半径');
 
     click($('btn-pause'), 'btn-pause');
     assert(active('pause-overlay'), '暂停遮罩未出现');
-    click($('btn-quit'), 'btn-quit');
+    click($('btn-resume'), 'btn-resume');
+    assert(ge.status === 'playing', '继续后对局未恢复');
+
+    // 无尽模式唯一的结局：被打光（结算要看「峰值人数」而不是层数）
+    const peakNow = ge.player.count;
+    ge.player.clearUnits();
+    ge.playerLost();
+    await wait(80);
+    assert(active('screen-lose'), '无尽模式全灭后未弹出结算页');
+    const loseSub = String($('lose-sub').textContent);
+    assert(loseSub.indexOf('峰值') >= 0 && loseSub.indexOf('最高纪录') >= 0 && loseSub.indexOf('层') < 0,
+      '无尽失败结算应报峰值人数而不是层数，实际：' + loseSub);
+    assert((Save.data.stats.endlessBest || 0) >= peakNow, '全灭时应把峰值写进最高纪录');
+    ok('无尽模式结束条件：全灭结算 · ' + loseSub);
+    click($('btn-lose-menu'), 'btn-lose-menu');
     assert(active('screen-menu'), '退出无尽模式后未回到主菜单');
     ok('无尽模式可暂停并随时退出');
 
@@ -533,6 +644,173 @@ const harness = `
     assert(parsed.unlockedLevels >= 2, '存档未记录关卡进度');
     ok('存档持久化正常（' + raw.length + ' 字节，已解锁 ' + parsed.unlockedLevels + ' 关）');
 
+    /* ========== 17. 技能 / 增益：配置里的 desc 是否真实生效 ========== */
+    // 不读配置字符串，而是构造受控对局、量测引擎里的实际数值与行为。
+    const vfHooks = { onHud() {}, onWin() {}, onMilestone() {}, onLose() {}, onLegionDown() {}, onInput() {} };
+    const mkGame = (run) => new MiniGame({
+      canvas: $('game-canvas'), minimap: $('minimap'),
+      level: LEVELS[0], levelIndex: 0,
+      run: Object.assign({ mode: 'campaign', skillId: 'rush', startCount: 3, buffs: {} }, run || {}),
+      hooks: vfHooks,
+    });
+    const vfDist = (x, y, gg) => Math.hypot(x - gg.player.cx, y - gg.player.cy);
+    const vfClean = [];
+
+    /* ---- 增益 7 条 ---- */
+    const vNone = mkGame({}), vBoost = mkGame({ buffs: { speed: 5, atk: 5 } });
+    vfClean.push(vNone, vBoost);
+    vNone.update(0.02); vBoost.update(0.02);
+    const vSpd = vBoost.player.speedMul / vNone.player.speedMul;
+    const vAtk = vBoost.player.atkMul / vNone.player.atkMul;
+    assert(Math.abs(vSpd - 1.35) < 1e-9, '行军加速 ×5 应 +35% 移速，实际 ×' + vSpd.toFixed(4));
+    assert(Math.abs(vAtk - 1.80) < 1e-9, '狼吞虎咽 ×5 应 +80% 吞噬速度，实际 ×' + vAtk.toFixed(4));
+
+    const vStart = mkGame({ buffs: { start: 2 } });
+    vfClean.push(vStart);
+    assert(vStart.player.count === 3 + 4, '先锋增援 ×2 开局应 3+4=7 人，实际 ' + vStart.player.count);
+
+    const vNeu = mkGame({ buffs: { neutral: 4 } });
+    vfClean.push(vNeu);
+    const vNeuWant = Math.min(Math.round(LEVELS[0].neutral * 2), CFG.neutralMax);
+    assert(vNeu.neutralTarget === vNeuWant && vNeu.neutrals.length === vNeuWant,
+      '遍地人潮 ×4 应把中立小人 +100%（目标 ' + vNeu.neutralTarget + '，实际铺开 ' + vNeu.neutrals.length + '）');
+
+    const vShrink = mkGame({ buffs: { shrink: 3 } });
+    vfClean.push(vShrink);
+    const vFoe0 = vShrink.legions.filter(L => !L.isPlayer)[0];
+    assert(vFoe0.count === Math.max(2, LEVELS[0].enemies[0].c - 6),
+      '威慑 ×3 应把敌军开局 -6（下限 2），实际 ' + vFoe0.count);
+
+    const vCd = mkGame({ buffs: { cd: 4 } });
+    vfClean.push(vCd);
+    Save.data.skills.rush = 1;
+    vCd.player.skillCd = 0;
+    vCd.useSkill();
+    assert(Math.abs(vCd.player.skillCd - SKILLS.rush.cd * 0.52) < 1e-6,
+      '战术精通 ×4 应把冷却 -48%，实际 ' + vCd.player.skillCd.toFixed(2) + 's');
+
+    // 感召力：4 个单位钉在圆心（避开「残部加成」），中立小人放在「基础半径之外、+75% 之内」
+    const mkTrap = (buffs) => {
+      const gg = mkGame({ startCount: 4, buffs: buffs });
+      vfClean.push(gg);
+      gg.player.clearUnits();
+      for (let k = 0; k < 4; k++) gg.player.addUnit(gg.player.cx, gg.player.cy);
+      gg.legions.forEach(L => { if (!L.isPlayer) { L.clearUnits(); L.alive = false; } });
+      gg.neutrals.length = 0;
+      gg.neutrals.push({ x: gg.player.cx + CFG.pickup * 1.4, y: gg.player.cy, vx: 0, vy: 0, ph: 0, dir: 0, t: 9 });
+      gg.buildUnitGrid();
+      return gg;
+    };
+    const vTrapB = mkTrap({}), vTrapP = mkTrap({ pickup: 3 });
+    vTrapB.updateNeutrals(0.02); vTrapP.updateNeutrals(0.02);
+    assert(vTrapB.neutrals.length === 1 && vTrapB.player.count === 4,
+      '基础收编半径（' + CFG.pickup + '）之外不应被收编，实际 ' + vTrapB.player.count + ' 人');
+    assert(vTrapP.neutrals.length === 0 && vTrapP.player.count === 5,
+      '感召力 +75%（半径 ' + (CFG.pickup * 1.75).toFixed(1) + '）应能收编同一位置的中立小人，实际 ' + vTrapP.player.count + ' 人');
+    ok('增益 7 条核准：先锋增援/遍地人潮/行军加速/狼吞虎咽/感召力/威慑/战术精通 的数值均真实进入引擎');
+
+    /* ---- 技能 6 个（统一固定在 Lv.1 逐条对数值） ---- */
+    SKILL_LIST.forEach(id => { Save.data.skills[id] = 1; });
+
+    const vRush = mkGame({ skillId: 'rush' });
+    vfClean.push(vRush);
+    vRush.updateLegion(vRush.player, 0.02); const r0 = vRush.player.speedMul;
+    vRush.player.fx.rush = SKILLS.rush.levels[0].dur;
+    vRush.updateLegion(vRush.player, 0.02); const r1 = vRush.player.speedMul;
+    assert(Math.abs(r1 / r0 - 1.6) < 1e-9, '急速集结 Lv.1 应 +60% 移速，实际 ×' + (r1 / r0).toFixed(4));
+    let vElapsed = 0;
+    for (let i = 0; i < 1000 && vRush.player.fx.rush; i++) { vRush.updateFx(0.02); vElapsed += 0.02; }
+    assert(Math.abs(vElapsed - SKILLS.rush.levels[0].dur) < 0.05,
+      '急速集结应持续 ' + SKILLS.rush.levels[0].dur + ' 秒，实际 ' + vElapsed.toFixed(2) + ' 秒');
+
+    const vFren = mkGame({ skillId: 'frenzy' });
+    vfClean.push(vFren);
+    vFren.updateLegion(vFren.player, 0.02); const f0 = vFren.player.atkMul;
+    vFren.player.fx.frenzy = 5;
+    vFren.updateLegion(vFren.player, 0.02); const f1 = vFren.player.atkMul;
+    assert(Math.abs(f1 / f0 - 2.0) < 1e-9, '狂暴吞噬 Lv.1 应让吞噬速度翻倍，实际 ×' + (f1 / f0).toFixed(4));
+    const vFoe1 = vFren.legions.filter(L => !L.isPlayer)[0];
+    vFoe1.ai = null; vFoe1.cx = vFren.player.cx + 20; vFoe1.cy = vFren.player.cy;
+    while (vFren.player.count < vFoe1.count + 6) vFren.player.addUnit(vFren.player.cx, vFren.player.cy);
+    vFren.pairTimers.clear();
+    let vIv = 0;
+    const vFrenC0 = vFren.player.count;
+    for (let i = 0; i < 100; i++) {
+      vFren.updateCombat(0.02);
+      if (vFren.player.count > vFrenC0) {          // 刚吞掉 1 个 → 这一帧把节拍设成 interval / atkMul
+        vIv = Array.from(vFren.pairTimers.values())[0] || 0;
+        break;
+      }
+    }
+    assert(vIv > 0 && Math.abs(vIv - CFG.eat.interval / vFren.player.atkMul) < 1e-6,
+      '狂暴吞噬应把吞噬节拍压到 ' + (CFG.eat.interval / vFren.player.atkMul).toFixed(3) +
+      's（基准 ' + CFG.eat.interval + 's），实际 ' + vIv.toFixed(3) + 's');
+
+    const vSlow = mkGame({ skillId: 'slow' });
+    vfClean.push(vSlow);
+    const vSlowFoe = vSlow.legions.filter(L => !L.isPlayer)[0];
+    vSlowFoe.ai = null;
+    vSlowFoe.cx = vSlow.player.cx + 100; vSlowFoe.cy = vSlow.player.cy;
+    vSlow.updateLegion(vSlowFoe, 0.02);
+    const s0 = vSlowFoe.speedMul;
+    vSlow.player.fx.slow = SKILLS.slow.levels[0].dur;
+    vSlow.updateLegion(vSlowFoe, 0.02);
+    assert(Math.abs(vSlowFoe.speedMul / s0 - 0.6) < 1e-9,
+      '时间迟缓 Lv.1 应把 ' + SKILLS.slow.levels[0].radius + ' 内敌军 -40% 移速，实际 ×' + (vSlowFoe.speedMul / s0).toFixed(4));
+    vSlowFoe.cx = vSlow.player.cx + SKILLS.slow.levels[0].radius + 60;
+    vSlow.updateLegion(vSlowFoe, 0.02);
+    assert(Math.abs(vSlowFoe.speedMul - s0) < 1e-9, '半径外的敌军不应被减速');
+
+    const vSh = mkGame({ skillId: 'shield' });
+    vfClean.push(vSh);
+    const vShFoe = vSh.legions.filter(L => !L.isPlayer)[0];
+    vShFoe.ai = null; vShFoe.cx = vSh.player.cx + 20; vShFoe.cy = vSh.player.cy;
+    while (vShFoe.count < vSh.player.count * 4) vShFoe.addUnit(vShFoe.cx, vShFoe.cy);
+    vSh.player.fx.shield = SKILLS.shield.levels[0].dur;
+    const vShCount = vSh.player.count;
+    for (let i = 0; i < 40; i++) vSh.updateCombat(0.02);
+    assert(vSh.player.count === vShCount, '坚壁期间不应损失单位，实际 ' + vShCount + ' -> ' + vSh.player.count);
+    delete vSh.player.fx.shield;
+    for (let i = 0; i < 40; i++) vSh.updateCombat(0.02);
+    assert(vSh.player.count < vShCount, '坚壁结束后应恢复被逐个吞噬，实际仍 ' + vSh.player.count + ' 人');
+
+    const vLure = mkGame({ skillId: 'lure' });
+    vfClean.push(vLure);
+    const vLureR = SKILLS.lure.levels[0].radius;
+    vLure.neutrals.length = 0;
+    const vLureN = { x: vLure.player.cx + vLureR * 0.9, y: vLure.player.cy, vx: 0, vy: 0, ph: 0, dir: 0, t: 9 };
+    vLure.neutrals.push(vLureN);
+    vLure.player.fx.lure = SKILLS.lure.levels[0].dur;
+    for (let i = 0; i < 25; i++) vLure.updateNeutrals(0.02);
+    const vLureIn = vfDist(vLureN.x, vLureN.y, vLure);
+    const vLureInV = Math.hypot(vLureN.vx, vLureN.vy);
+    assert(vLureIn < vLureR * 0.9 - 15 && vLureInV > 60,
+      '诱捕应把 ' + vLureR + ' 内的中立小人拉近（' + (vLureR * 0.9).toFixed(0) + ' -> ' + vLureIn.toFixed(0) +
+      '，吸引速度 ' + vLureInV.toFixed(0) + 'px/s）');
+    vLureN.x = vLure.player.cx + vLureR * 1.15; vLureN.y = vLure.player.cy;
+    vLureN.vx = 0; vLureN.vy = 0; vLureN.t = 9;
+    for (let i = 0; i < 25; i++) vLure.updateNeutrals(0.02);
+    const vLureOut = vfDist(vLureN.x, vLureN.y, vLure);
+    // 半径外只剩 ≤16px/s 的自然游荡，不应出现 120px/s 的吸引力
+    const vLureOutV = Math.hypot(vLureN.vx, vLureN.vy);
+    assert(vLureOutV < 20 && vLureOut > vLureR * 1.15 - 10,
+      '半径外不应被吸引（速度 ' + vLureOutV.toFixed(1) + 'px/s · 距离 ' + vLureOut.toFixed(0) + '）');
+
+    const vRe = mkGame({ skillId: 'reinforce' });
+    vfClean.push(vRe);
+    vRe.player.skillCd = 0;
+    const vReCount = vRe.player.count, vReNeu = vRe.neutrals.length;
+    vRe.useSkill();
+    assert(vRe.player.count === vReCount + 4, '临时增援 Lv.1 应立刻 +4 人，实际 +' + (vRe.player.count - vReCount));
+    assert(vRe.player.units.filter(u => u.temp > 0).length === 4, '应有 4 个临时单位');
+    vRe.player.target.x = vRe.player.cx; vRe.player.target.y = vRe.player.cy;
+    for (let i = 0; i < 610; i++) vRe.updateLegion(vRe.player, 0.02);   // 12.2 秒
+    assert(vRe.player.count === vReCount, '援军应在 ' + SKILLS.reinforce.levels[0].dur + ' 秒后离队，实际还剩 ' + (vRe.player.count - vReCount) + ' 人');
+    assert(vRe.neutrals.length === vReNeu + 4, '离队的援军应变回中立小人（+' + (vRe.neutrals.length - vReNeu) + '）');
+    ok('技能 6 个核准：急速集结/临时增援/诱捕/狂暴吞噬/时间迟缓/坚壁 的范围与秒数均真实生效');
+
+    vfClean.forEach(x => x && x.destroy());
+
     window.__TEST_RESULT__ = { ok: true, log };
   } catch (err) {
     window.__TEST_RESULT__ = { ok: false, log, error: (err && err.stack) || String(err) };
@@ -544,6 +822,7 @@ const harness = `
 const source = SCRIPTS.map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n')
   + '\n;window.__APP__ = { UI: UI, Save: Save, LEVELS: LEVELS, SKINS: SKINS, SKILLS: SKILLS,' +
     ' SKILL_LIST: SKILL_LIST, START_OPTIONS: START_OPTIONS, ACHIEVEMENTS: ACHIEVEMENTS,' +
+    ' ENDLESS: ENDLESS, endlessViewRadius: endlessViewRadius,' +
     ' CFG: CFG, MiniGame: MiniGame };\n';
 
 try {

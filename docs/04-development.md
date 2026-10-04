@@ -79,9 +79,9 @@ window.GameUtils  // { SLOTS, blobRadius, makeSprite, clamp, rnd }
 new MiniGame({
   canvas,          // HTMLCanvasElement
   minimap,         // 可选，小地图 canvas
-  level,           // 关卡配置对象
+  level,           // 关卡配置对象（level.dynamicWorld 为真 → 以玩家为中心的动态地图）
   levelIndex,      // 关卡下标（无尽模式传 -1）
-  world,           // 可选 {w, h}，不传则用 CFG.world
+  world,           // 可选 {w, h}（世界框尺寸），不传则用 CFG.world；原点由引擎管理
   run,             // { mode, skillId, startCount, buffs, ... }
   hooks,           // 回调集合，见下
 })
@@ -94,6 +94,7 @@ new MiniGame({
 | `onHud(data)` | 见下 | 每 ~0.1 秒推送一次，用于刷新 HUD |
 | `onWin(res)` | 结算结果 | 达成目标 |
 | `onLose(res)` | 结算结果（含 `reason`） | 我方人数归零 |
+| `onMilestone(res)` | 同 `onLose` 结构 + `milestone` / `threshold` | 无尽模式每满 `step` 人（对局不结束） |
 | `onInput()` | — | 玩家首次触摸/点击（用于解锁音频） |
 | `onLegionDown(legion)` | 被消灭的军团 | 某支敌军被吃光 |
 
@@ -101,34 +102,38 @@ new MiniGame({
 ```js
 { count, peak, goalText, progress, time,
   enemyCount, enemies: [{ name, body, count, threat }],
+  arenaR,             // 动态战场当前半径（非动态地图为 0）
   skillCd, skillCdMax }
 ```
 
-`onWin/onLose` 结果数据结构：
+`onWin/onLose/onMilestone` 结果数据结构：
 ```js
-{ win, levelId, levelName, endless, stage, levelIndex,
+{ win, levelId, levelName, endless, milestone, threshold, levelIndex,
   stars, time, coin, count, peak, eaten, lost,
   flawless, comeback, enemiesLeft, reason? }
 ```
 
-**对外方法**：`start()` / `pause()` / `resume()` / `destroy()` / `useSkill()` / `resize()`
+**对外方法**：`start()` / `pause()` / `resume()` / `resumeFromMilestone()` /
+`useSkill()` / `resize()` / `destroy()`
 
 ### 3.2 每帧更新顺序（`update(dt)`）
 
 ```
-1. updateControl()    把玩家输入（指针/键盘）转成 player.target
-2. 对每个军团：
-     aiThink()         AI 决策（有节流，不是每帧都算）
-     updateLegion()    算速度修正 → 移动军团中心 → 单位跟随编队 → 临时援军到期
-3. buildUnitGrid()    把所有单位塞进空间网格（格子 46px）
-4. updateNeutrals()   中立小人游荡 + 被收编判定（查 3×3 邻域网格）
-5. updateCombat()     军团两两接触判定 + 逐个吞噬
-6. updateFx()         技能计时、冷却
-7. updateParticles()  粒子与飘字
-8. updateCamera()     镜头跟随、缩放、危险度
-9. spawnNeutral()     按需补充中立小人
-10. pushHud()         节流推送 HUD
-11. checkGoal()       判定胜负
+1. updateDynamicWorld() 无尽专用：世界框重算为「以玩家为中心」，回收并补足内容
+2. updateControl()      把玩家输入（指针/键盘）转成 player.target
+3. 对每个军团：
+     aiThink()           AI 决策（有节流，不是每帧都算）
+     updateLegion()      算速度修正 → 移动军团中心 → 单位跟随编队 → 临时援军到期
+4. buildUnitGrid()      把所有单位塞进空间网格（格子 46px）
+5. updateNeutrals()     中立小人游荡 + 被收编判定（查 3×3 邻域网格）
+6. updateCombat()       军团两两接触判定 + 逐个吞噬
+7. updateFx()           技能计时、冷却
+8. updateParticles()    粒子与飘字
+9. updateCamera()       镜头跟随、缩放、危险度
+10. spawnNeutral()      按需补充中立小人
+11. endlessRamp()       无尽专用：每秒一次，敌军数量/人数/性格对齐我方规模
+12. pushHud()           节流推送 HUD（含动态战场半径）
+13. checkGoal()         判定胜负（无尽 → 里程碑）
 ```
 
 ### 3.3 战斗核心：逐个单位吞噬
@@ -256,43 +261,63 @@ UI（准备页卡片、HUD 按钮）会自动跟着 `SKILL_LIST` 渲染，不用
 
 ---
 
-## 5. 无尽模式的实现（没有「层」，一场打到底）
+## 5. 无尽模式的实现（没有「层」，动态地图 + 动态敌军 + 里程碑）
 
 无尽模式的关卡对象**只有一个**，由 `js/config.js` 的 `makeEndlessLevel()` 生成
-（结构与主线关卡一致，额外带 `endless: true`、`goal: { type: 'endless', step: 50 }`，
-外加随规模变化的 `world`）。
+（结构与主线关卡一致，额外带 `endless: true`、`dynamicWorld: true`、
+`goal: { type: 'endless', step: 50 }`）。
 
-### 里程碑 = 暂停，不是过关
+> `Game` 里判断动态地图用的是 `level.dynamicWorld || level.endless` **双条件** ——
+> 只要是无尽关卡就一定走动态地图，避免两个标记不一致时又画出固定棋盘的硬边界
+> （回归项：第 4 段断言关卡模式渲染 1 条边界，第 15 段断言无尽模式渲染 0 条边界、0 个大圈）。
 
-- 引擎里多了一个状态：`status = 'playing' | 'paused' | 'milestone' | 'over'`。
+三个机制互相独立，改坏任何一个都会立刻在测试里暴露：
+
+### 一、动态地图（以玩家为中心，持续生成 / 回收）
+
+- 世界框 `this.world` 带**原点**（`{x, y, w, h}`），主线恒为 `{0, 0, 3000, 2200}`。
+- 无尽模式下每帧调用 `updateDynamicWorld()`：
+  `R = viewRadius()` → `world = [玩家 ± R]`，且 `R` 同时满足
+  `endlessViewRadius(峰值人数)` 与「屏幕对角线的一半 + 120」，因此
+  **视野内永远是实心战场，玩家永远不会走到边缘**。
+- `streamWorld()` 负责内容存续：超出 `R × ENDLESS.cullPad` 的中立小人 / 装饰物被 `splice` 回收，
+  再在 `0.42R ~ 0.96R` 的环带（视野之外）补新的，装饰物按 `πR² / 26000` 维持密度。
+- 因此**没有墙**：`updateLegion()` 的边界夹取、`drawBounds()` 的描边在 `dynWorld` 下全部跳过，
+  地面网格本来就按 `viewRect()` 程序化绘制，所以无限延伸不需要任何额外素材。
+- `clampX / clampY / inArena` 三个小工具负责所有「按世界框取边界」的地方（含输入目标点、中立小人反弹、小地图映射）。
+
+### 二、动态敌军（每秒钟按你的规模重算）
+
+- `endlessRamp()` 每秒执行一次：
+  - 支数对齐 `min(2 + ⌊峰值人数/45⌋, 7)`，阵亡或**溃逃**后自动补位（`spawnEndlessEnemy()`）；
+  - 每支按 `endlessEnemyTarget(pop, time, i, n)` 增援到目标人数（离玩家 520px 内不刷，避免凭空冒兵）；
+  - 统一刷新 `ai.ag / ai.react / ai.sp`（`endlessEnemyStats(pop)`），并同步 `this.aiCap`；
+  - `cullEscapedEnemies()`：跑出 `1.25R` 的敌军判为**溃逃**并回收（无墙环境下的「逃不掉」替代方案）；
+  - 中立小人目标量随规模上涨。
+- AI 在 `dynWorld` 下的差别（`aiThink()`）：逃跑不再「贴墙跑」，而是
+  「方向朝外 + 到 `0.78R` 后改成绕玩家转圈」；找不到中立小人时在战场内绕玩家巡逻。
+  这样即使没有墙，弱势敌军也**不会一路逃出战场**，玩家（惊慌减速机制下更快）总能追上。
+
+### 三、里程碑 = 暂停，不是过关
+
+- 引擎状态：`status = 'playing' | 'paused' | 'milestone' | 'over'`。
   `milestone` 期间 `update()` 直接返回，**对局冻结但 `Game` 实例继续存活**。
 - `checkGoal()` 对 `goal.type === 'endless'` 只做一件事：
   人数 `>= this.nextMilestone` 时调用 `reachMilestone()`（不再有 `win()`）。
 - `reachMilestone()`：`milestones++`、`nextMilestone += step`、`releaseInput()`、
-  `expandEndlessWorld()`、`buildResult(true)` 并回调 `hooks.onMilestone(res)`。
+  `buildResult(true)` 并回调 `hooks.onMilestone(res)`。
 - `resumeFromMilestone()`：重算 `this.buff = computeBuffs(run.buffs)`、恢复 `playing`、
   重置 `lastT`。**这就是「人数不重置」的实现方式** ——
   UI 侧 `nextLevel()` 在无尽模式下不新建 `Game`，而是调用这个方法回到同一场对局。
 - 里程碑奖励走的是同一套 `rollRewards()`，只是传 `{ endless: true }`：
   技能卡权重调高、去掉「解锁开局人数」卡。
 
-### 难度递增（不按层，按人数 + 时间）
-
-- `endlessRamp()` 每秒执行一次：
-  - 敌军支数对齐 `min(2 + ⌊峰值人数/45⌋, 7)`，阵亡后自动补位（`spawnEndlessEnemy()`）；
-  - 每支敌军按 `endlessEnemyTarget(pop, time, i, n)` 增援到目标人数（离玩家 520px 内不刷，避免凭空冒兵）；
-  - 统一刷新 `ai.ag / ai.react / ai.sp`（`endlessEnemyStats(pop)`），并同步 `this.aiCap`；
-  - 中立小人目标量随规模上涨。
-- `expandEndlessWorld()` 在每个里程碑扩棋盘（只补新区域的装饰物；
-  中立小人由常规的 `spawnNeutral` 缺额补充逻辑自动铺到新区域）。
-- `Game` 内部所有地图边界都读 `this.world`，所以运行中改 `world.w/h` 是安全的。
-
 ### 记录
 
 无尽模式不写星级，只更新 `Save.data.stats.endlessBest` = **单局最高人数**。
 
 要调整无尽曲线，只改 `js/config.js` 里的 `ENDLESS` 常量与三个纯函数
-（`endlessWorldFor` / `endlessEnemyTarget` / `endlessEnemyStats`）即可
+（`endlessViewRadius` / `endlessEnemyTarget` / `endlessEnemyStats`）即可
 （详见 [02-modes.md](02-modes.md#2-模式二无尽挑战没有层一场打到底)）。
 
 ---
@@ -313,15 +338,22 @@ npm test
 4. 模拟真实用户点击：遍历主菜单、关卡选择、商店、成就、说明、出征准备
 5. 进入对局后验证：滑动控制、收编中立小人、**逐个吞噬（正向与反向）**、
    技能释放、暂停/继续、通关结算、三选一、关卡推进、
-   **无尽模式里程碑（50 人暂停三选一 → 同一场对局继续、人数不重置、棋盘扩大）**、
-   失败流程、商店购买、存档持久化
+   **无尽模式（动态地图随玩家平移与规模变大、对玩家零边界限制、渲染不画任何边界/场地圈、
+   内容全部落在战场内、50 人里程碑暂停三选一 → 同一场对局继续、人数不重置、
+   全灭结算报峰值人数）**、失败流程、商店购买、存档持久化
 6. 捕获任何 jsdom 运行期 JS 错误，一旦出现即判定失败
+7. **技能/增益「描述 = 实效」校验**（第 17 段）：不看配置字符串，而是构造受控对局量测引擎实际值 ——
+   7 条增益的数值（移速 ×1.35、吞噬 ×1.8、开局 +4 人、中立 +100%、敌军 -6、冷却 -48%、
+   收编半径 26 → 45.5）、6 个技能的数值与范围/秒数（+60% 移速持续 4.0s、+4 援军 12s 后离队
+   并变回中立小人、诱捕 320 内拉近且 320 外只保留自然游荡、狂暴吞噬节拍 0.32→0.16s、
+   480 内敌军 ×0.6 且 480 外不减速、坚壁期间零损失且结束后恢复吞噬）
 
 当前规模（由 `scripts/visualization/lib_load_facts.mjs` 统计，可用 `npm run overview:data` 重算）：
-**17 段流程 · 113 处断言调用点 · 39 项界面校验**。全部通过时最后一行输出 `全部通过 ✓`。
+**18 段流程 · 156 处断言调用点 · 44 项界面校验**。全部通过时最后一行输出 `全部通过 ✓`。
 
 > 依赖时间的用例（逐个吞噬、反向吞噬、收编中立小人、无尽里程碑）统一走
-> `ticks(game, n, dt)` **固定步长推进**，不再依赖 `requestAnimationFrame` 的墙钟步长，
+> `ticks(game, n, dt)` **固定步长推进**（`update` + `render` 各一次，
+> 因为镜头跟随/缩放是在 `render` 里推进的），不再依赖 `requestAnimationFrame` 的墙钟步长，
 > 因此不会随机器负载抖动。详见 [../CONTRIBUTING.md](../CONTRIBUTING.md) 第 6 节。
 
 ### 引擎压力/平衡模拟

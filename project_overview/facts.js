@@ -1,6 +1,6 @@
 /* 本文件由 scripts/visualization/generate_overview_facts.mjs 自动生成，请勿手工编辑。
  *    重新生成：node scripts/visualization/generate_overview_facts.mjs  或  npm run overview:data
- *    生成时间：2026-10-04 14:38Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
+ *    生成时间：2026-10-04 15:17Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
  *    js/save.js、package.json、css/style.css、index.html、test/dom.test.js、docs/04-development.md）。 */
 window.OVERVIEW_FACTS = {
  "meta": {
@@ -19,7 +19,7 @@ window.OVERVIEW_FACTS = {
   "runtimeDeps": 0,
   "devDeps": 1,
   "saveKey": "mini_legion_save_v1",
-  "generatedAt": "2026-10-04 14:38Z",
+  "generatedAt": "2026-10-04 15:17Z",
   "generator": "scripts/visualization/generate_overview_facts.mjs"
  },
  "content": {
@@ -59,26 +59,26 @@ window.OVERVIEW_FACTS = {
  "lines": {
   "index.html": 267,
   "css/style.css": 564,
-  "js/config.js": 284,
-  "js/engine.js": 1915,
-  "js/ui.js": 808,
+  "js/config.js": 302,
+  "js/engine.js": 2054,
+  "js/ui.js": 815,
   "js/save.js": 98,
   "js/audio.js": 53,
   "server.js": 126,
-  "test/dom.test.js": 592,
+  "test/dom.test.js": 871,
   "scripts/start.sh": 56
  },
  "test": {
-  "sections": 17,
-  "asserts": 113,
-  "checks": 39,
-  "lines": 592
+  "sections": 18,
+  "asserts": 156,
+  "checks": 44,
+  "lines": 871
  },
  "totals": {
-  "jsLines": 3158,
+  "jsLines": 3322,
   "cssLines": 564,
   "htmlLines": 267,
-  "testLines": 592,
+  "testLines": 871,
   "docFiles": 5,
   "screens": 9,
   "skinStyles": [
@@ -879,23 +879,25 @@ window.OVERVIEW_FACTS = {
   }
  ],
  "updateOrder": [
-  "1. updateControl()    把玩家输入（指针/键盘）转成 player.target",
-  "2. 对每个军团：",
-  "aiThink()         AI 决策（有节流，不是每帧都算）",
-  "updateLegion()    算速度修正 → 移动军团中心 → 单位跟随编队 → 临时援军到期",
-  "3. buildUnitGrid()    把所有单位塞进空间网格（格子 46px）",
-  "4. updateNeutrals()   中立小人游荡 + 被收编判定（查 3×3 邻域网格）",
-  "5. updateCombat()     军团两两接触判定 + 逐个吞噬",
-  "6. updateFx()         技能计时、冷却",
-  "7. updateParticles()  粒子与飘字",
-  "8. updateCamera()     镜头跟随、缩放、危险度",
-  "9. spawnNeutral()     按需补充中立小人",
-  "10. pushHud()         节流推送 HUD",
-  "11. checkGoal()       判定胜负"
+  "1. updateDynamicWorld() 无尽专用：世界框重算为「以玩家为中心」，回收并补足内容",
+  "2. updateControl()      把玩家输入（指针/键盘）转成 player.target",
+  "3. 对每个军团：",
+  "aiThink()           AI 决策（有节流，不是每帧都算）",
+  "updateLegion()      算速度修正 → 移动军团中心 → 单位跟随编队 → 临时援军到期",
+  "4. buildUnitGrid()      把所有单位塞进空间网格（格子 46px）",
+  "5. updateNeutrals()     中立小人游荡 + 被收编判定（查 3×3 邻域网格）",
+  "6. updateCombat()       军团两两接触判定 + 逐个吞噬",
+  "7. updateFx()           技能计时、冷却",
+  "8. updateParticles()    粒子与飘字",
+  "9. updateCamera()       镜头跟随、缩放、危险度",
+  "10. spawnNeutral()      按需补充中立小人",
+  "11. endlessRamp()       无尽专用：每秒一次，敌军数量/人数/性格对齐我方规模",
+  "12. pushHud()           节流推送 HUD（含动态战场半径）",
+  "13. checkGoal()         判定胜负（无尽 → 里程碑）"
  ],
  "faq": {
-  "questions": 29,
-  "lines": 172
+  "questions": 30,
+  "lines": 178
  },
  "tree": [
   {
@@ -921,15 +923,15 @@ window.OVERVIEW_FACTS = {
      "name": "01-gameplay.md",
      "path": "docs/01-gameplay.md",
      "type": "file",
-     "bytes": 7727,
-     "lines": 151
+     "bytes": 8017,
+     "lines": 153
     },
     {
      "name": "02-modes.md",
      "path": "docs/02-modes.md",
      "type": "file",
-     "bytes": 10484,
-     "lines": 186
+     "bytes": 13121,
+     "lines": 218
     },
     {
      "name": "03-systems.md",
@@ -942,15 +944,15 @@ window.OVERVIEW_FACTS = {
      "name": "04-development.md",
      "path": "docs/04-development.md",
      "type": "file",
-     "bytes": 17882,
-     "lines": 407
+     "bytes": 21080,
+     "lines": 439
     },
     {
      "name": "05-controls-and-layout.md",
      "path": "docs/05-controls-and-layout.md",
      "type": "file",
-     "bytes": 13562,
-     "lines": 275
+     "bytes": 14013,
+     "lines": 279
     },
     {
      "name": "architecture.svg",
@@ -970,7 +972,7 @@ window.OVERVIEW_FACTS = {
      "name": "content-scale.svg",
      "path": "docs/content-scale.svg",
      "type": "file",
-     "bytes": 6503,
+     "bytes": 6527,
      "lines": 66
     }
    ]
@@ -991,15 +993,15 @@ window.OVERVIEW_FACTS = {
      "name": "config.js",
      "path": "js/config.js",
      "type": "file",
-     "bytes": 16262,
-     "lines": 284
+     "bytes": 17806,
+     "lines": 302
     },
     {
      "name": "engine.js",
      "path": "js/engine.js",
      "type": "file",
-     "bytes": 70080,
-     "lines": 1915
+     "bytes": 76868,
+     "lines": 2054
     },
     {
      "name": "save.js",
@@ -1012,8 +1014,8 @@ window.OVERVIEW_FACTS = {
      "name": "ui.js",
      "path": "js/ui.js",
      "type": "file",
-     "bytes": 30763,
-     "lines": 808
+     "bytes": 31225,
+     "lines": 815
     }
    ]
   },
@@ -1047,8 +1049,8 @@ window.OVERVIEW_FACTS = {
      "name": "index.html",
      "path": "project_overview/index.html",
      "type": "file",
-     "bytes": 33855,
-     "lines": 550
+     "bytes": 34604,
+     "lines": 555
     },
     {
      "name": "script.js",
@@ -1094,7 +1096,7 @@ window.OVERVIEW_FACTS = {
        "name": "generate_content_scale_svg.mjs",
        "path": "scripts/visualization/generate_content_scale_svg.mjs",
        "type": "file",
-       "bytes": 5662,
+       "bytes": 5686,
        "lines": 90
       },
       {
@@ -1131,8 +1133,8 @@ window.OVERVIEW_FACTS = {
      "name": "dom.test.js",
      "path": "test/dom.test.js",
      "type": "file",
-     "bytes": 31184,
-     "lines": 592
+     "bytes": 48196,
+     "lines": 871
     }
    ]
   },
@@ -1182,8 +1184,8 @@ window.OVERVIEW_FACTS = {
    "name": "CHANGELOG.md",
    "path": "CHANGELOG.md",
    "type": "file",
-   "bytes": 12061,
-   "lines": 150
+   "bytes": 14821,
+   "lines": 177
   },
   {
    "name": "CODE_OF_CONDUCT.md",
@@ -1196,21 +1198,21 @@ window.OVERVIEW_FACTS = {
    "name": "CONTRIBUTING.md",
    "path": "CONTRIBUTING.md",
    "type": "file",
-   "bytes": 10755,
-   "lines": 189
+   "bytes": 11882,
+   "lines": 199
   },
   {
    "name": "FAQ.md",
    "path": "FAQ.md",
    "type": "file",
-   "bytes": 10716,
-   "lines": 172
+   "bytes": 11254,
+   "lines": 178
   },
   {
    "name": "index.html",
    "path": "index.html",
    "type": "file",
-   "bytes": 11774,
+   "bytes": 11892,
    "lines": 267
   },
   {
@@ -1245,7 +1247,7 @@ window.OVERVIEW_FACTS = {
    "name": "README.md",
    "path": "README.md",
    "type": "file",
-   "bytes": 11884,
+   "bytes": 11950,
    "lines": 212
   },
   {

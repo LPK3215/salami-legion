@@ -188,11 +188,21 @@
       this.hooks = opts.hooks || {};
       this.dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-      // 地图尺寸：默认取全局配置，无尽模式等可由关卡注入更大棋盘
+      // 地图框（含原点）：主线固定 0,0 起；无尽模式以玩家为中心每帧重算
       this.world = {
+        x: 0, y: 0,
         w: (opts.world && opts.world.w) || CFG.world.w,
         h: (opts.world && opts.world.h) || CFG.world.h,
       };
+      // 动态地图：世界框以玩家为圆心持续重算（无尽模式），没有固定棋盘也没有墙。
+      // 双保险：只要有 endless 标记就一定走动态地图，避免两个标记不一致时又画出硬边界
+      this.dynWorld = !!(this.level && (this.level.dynamicWorld || this.level.endless));
+      if (this.dynWorld) {
+        this.world.x = -this.world.w / 2;
+        this.world.y = -this.world.h / 2;
+      }
+      this.dynR = this.dynWorld ? this.world.w / 2 : 0;
+      this.dynCenter = { x: 0, y: 0 };
 
       this.buff = this.computeBuffs(this.run.buffs || {});
       this.time = 0;
@@ -260,27 +270,22 @@
     /* ===== 世界生成 ===== */
     buildWorld() {
       const W = this.world.w, H = this.world.h;
+      const x0 = this.world.x, y0 = this.world.y;
       const L = this.level;
 
       // 装饰物（草丛/石堆）：数量随地图面积自适应
-      const decoColors = ['#2a7a4f', '#2f8a58', '#357a63', '#3a6f7a', '#4a6b8a'];
       const decoCount = Math.max(60, Math.round(W * H / 73000));
-      for (let i = 0; i < decoCount; i++) {
-        this.decor.push({
-          x: rnd(60, W - 60), y: rnd(60, H - 60),
-          r: rnd(16, 42), c: decoColors[(Math.random() * decoColors.length) | 0],
-          s: Math.random() * TAU,
-        });
-      }
+      for (let i = 0; i < decoCount; i++) this.spawnDecor();
 
       // 玩家
       const skin = SKINS.find(s => s.id === Save.data.skinSelected) || SKINS[0];
       const startCount = clamp(this.run.startCount + this.buff.startCount, 1, CFG.maxUnits);
       this.player = new Legion({
         name: '我方军团', body: skin.body, style: skin.style, isPlayer: true,
-        x: W / 2, y: H / 2,
+        x: x0 + W / 2, y: y0 + H / 2,
       });
-      this.player.target = { x: W / 2, y: H / 2 };
+      this.player.target = { x: x0 + W / 2, y: y0 + H / 2 };
+      this.dynCenter = { x: this.player.cx, y: this.player.cy };
       this.legions.push(this.player);
 
       // 中立小人
@@ -305,12 +310,18 @@
         used.push(pal);
 
         const ang = (i / L.enemies.length) * TAU + rnd(-0.3, 0.3);
-        const rad = rnd(680, 1050);
-        const x = clamp(W / 2 + Math.cos(ang) * rad, 140, W - 140);
-        const y = clamp(H / 2 + Math.sin(ang) * rad, 140, H - 140);
+        // 动态战场按半径比例摆敌军（保证开局有一小段抢中立小人的安全窗口）
+        const rad = this.dynWorld
+          ? rnd(Math.max(820, this.dynR * 0.45), this.dynR * 0.78)
+          : rnd(680, 1050);
+        const x = clamp(x0 + W / 2 + Math.cos(ang) * rad, x0 + 140, x0 + W - 140);
+        const y = clamp(y0 + H / 2 + Math.sin(ang) * rad, y0 + 140, y0 + H - 140);
         const A = new Legion({
           name: pal.name, body: pal.body, style: 'plain', x, y,
-          ai: { c: e.c, sp: e.sp, ag: e.ag, react: e.react, t: Math.random() * 0.5 },
+          ai: {
+            c: e.c, sp: e.sp, ag: e.ag, react: e.react, t: Math.random() * 0.5,
+            spin: Math.random() < 0.5 ? -1 : 1,
+          },
         });
         A.target = { x, y };
         this.legions.push(A);
@@ -339,12 +350,49 @@
       }
     }
 
+    /* ---- 世界框边界工具（世界框带原点，非动态地图时原点恒为 0,0） ---- */
+    clampX(x, pad) { return clamp(x, this.world.x + pad, this.world.x + this.world.w - pad); }
+    clampY(y, pad) { return clamp(y, this.world.y + pad, this.world.y + this.world.h - pad); }
+    /* 是否还在以玩家为中心的动态战场内（超出 pad 倍半径即判为离场） */
+    inArena(x, y, mul) {
+      if (!this.dynWorld) return true;
+      const k = this.dynR * (mul || 1);
+      return dist2(x, y, this.dynCenter.x, this.dynCenter.y) <= k * k;
+    }
+
+    /* 装饰物：动态地图下撒在玩家周围，静态地图下撒满整张棋盘 */
+    spawnDecor() {
+      const decoColors = ['#2a7a4f', '#2f8a58', '#357a63', '#3a6f7a', '#4a6b8a'];
+      let x, y;
+      if (this.dynWorld) {
+        const ang = Math.random() * TAU, rad = rnd(this.dynR * 0.1, this.dynR * 0.98);
+        x = this.dynCenter.x + Math.cos(ang) * rad;
+        y = this.dynCenter.y + Math.sin(ang) * rad;
+      } else {
+        x = rnd(this.world.x + 60, this.world.x + this.world.w - 60);
+        y = rnd(this.world.y + 60, this.world.y + this.world.h - 60);
+      }
+      this.decor.push({
+        x, y, r: rnd(16, 42),
+        c: decoColors[(Math.random() * decoColors.length) | 0],
+        s: Math.random() * TAU,
+      });
+    }
+
     spawnNeutral(minDist) {
       if (this.neutrals.length >= CFG.neutralMax) return;
-      const W = this.world.w, H = this.world.h;
       let x = 0, y = 0, ok = false;
       for (let t = 0; t < 12; t++) {
-        x = rnd(60, W - 60); y = rnd(60, H - 60);
+        if (this.dynWorld) {
+          // 动态战场：只补在「视野外的环带」里，避免小人凭空出现在脸上
+          const ang = Math.random() * TAU;
+          const rad = rnd(this.dynR * ENDLESS.spawnInner, this.dynR * ENDLESS.spawnOuter);
+          x = this.dynCenter.x + Math.cos(ang) * rad;
+          y = this.dynCenter.y + Math.sin(ang) * rad;
+        } else {
+          x = rnd(this.world.x + 60, this.world.x + this.world.w - 60);
+          y = rnd(this.world.y + 60, this.world.y + this.world.h - 60);
+        }
         ok = true;
         for (const L of this.legions) {
           if (!L.alive) continue;
@@ -356,6 +404,73 @@
         x, y, vx: rnd(-12, 12), vy: rnd(-12, 12),
         ph: Math.random() * TAU, dir: Math.random() * TAU, t: rnd(0.6, 2.2),
       });
+    }
+
+    /* ===== 动态地图：每帧把世界框重算成「以玩家为中心、边长 2R」的战场，
+             并持续回收 / 补充其中的中立小人与装饰物（无尽模式专用） ===== */
+    updateDynamicWorld() {
+      if (!this.dynWorld || !this.player) return;
+      const p = this.player;
+      const R = this.viewRadius();
+      const dx = p.cx - this.dynCenter.x, dy = p.cy - this.dynCenter.y;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(R - this.dynR) < 1) return;
+
+      const grew = R - this.dynR;
+      this.dynCenter.x = p.cx;
+      this.dynCenter.y = p.cy;
+      this.dynR = R;
+      this.world.x = p.cx - R;
+      this.world.y = p.cy - R;
+      this.world.w = R * 2;
+      this.world.h = R * 2;
+      this.streamWorld();
+      if (grew > 14) this.floatText('战场扩大！', p.cx, p.cy - 72, '#4dd2ff', 1.4);
+    }
+
+    /* 当前动态战场半径：随规模变大，且永远装得下整个屏幕 */
+    viewRadius() {
+      const pop = Math.max(this.player ? this.player.count : 0, this.stats.peak);
+      const need = Math.hypot(this.vw, this.vh) / (2 * Math.max(0.2, this.cam.zoom)) + 120;
+      return Math.round(Math.max(endlessViewRadius(pop), need));
+    }
+
+    /* 回收跑出战场的内容，并补足缺口（中立小人 / 装饰物都保持在场内） */
+    streamWorld() {
+      const c = this.dynCenter, keep = this.dynR * ENDLESS.cullPad;
+      const keep2 = keep * keep;
+
+      for (let i = this.neutrals.length - 1; i >= 0; i--) {
+        const N = this.neutrals[i];
+        if (dist2(N.x, N.y, c.x, c.y) > keep2) this.neutrals.splice(i, 1);
+      }
+      for (let i = this.decor.length - 1; i >= 0; i--) {
+        const d = this.decor[i];
+        if (dist2(d.x, d.y, c.x, c.y) > keep2) this.decor.splice(i, 1);
+      }
+
+      const wantDeco = Math.max(70, Math.round(Math.PI * this.dynR * this.dynR / 26000));
+      let guard = 0;
+      while (this.decor.length < wantDeco && guard++ < 40) this.spawnDecor();
+
+      let guard2 = 0;
+      while (this.neutrals.length < this.neutralTarget && guard2++ < 40) this.spawnNeutral(300);
+    }
+
+    /* 无尽模式敌军「溃逃」：跑出战场太远就地回收，由难度递增逻辑补一支新的 */
+    cullEscapedEnemies() {
+      if (!this.dynWorld) return 0;
+      const c = this.dynCenter, k = this.dynR * ENDLESS.enemyDespawn;
+      const k2 = k * k;
+      let n = 0;
+      for (const L of this.legions) {
+        if (L.isPlayer || !L.alive) continue;
+        if (dist2(L.cx, L.cy, c.x, c.y) <= k2) continue;
+        this.floatText(L.name + ' 溃逃', c.x, c.y - 80, '#9fd0ff', 1.2);
+        L.clearUnits();
+        L.alive = false;
+        n++;
+      }
+      return n;
     }
 
     /* ===== 事件绑定 ===== */
@@ -660,6 +775,7 @@
       if (this.status !== 'playing') return;   // 已结束/暂停不再推进
       this.time += dt;
 
+      this.updateDynamicWorld();               // 无尽：战场框跟着玩家与规模走
       this.updateControl(dt);
       for (const L of this.legions) {
         if (!L.alive) continue;
@@ -701,14 +817,13 @@
     updateControl(dt) {
       const p = this.player;
       if (!p.alive) { this.lastInput = 'idle'; return; }
-      const W = this.world.w, H = this.world.h;
       const REACH = 430;                     // 键盘/摇杆一次给多远的目标点
 
       // 1) 虚拟摇杆：方向 + 力度 → 目标点，力度越小走得越慢
       if (this.stick.active && (this.stick.axisX || this.stick.axisY)) {
         const reach = REACH * this.stick.strength;
-        p.target.x = clamp(p.cx + this.stick.axisX * reach, 20, W - 20);
-        p.target.y = clamp(p.cy + this.stick.axisY * reach, 20, H - 20);
+        p.target.x = this.clampX(p.cx + this.stick.axisX * reach, 20);
+        p.target.y = this.clampY(p.cy + this.stick.axisY * reach, 20);
         this.lastInput = 'stick';
         return;
       }
@@ -716,8 +831,8 @@
       // 2) 键盘：按住方向键 / WASD 移动，支持斜向
       if (this.keys.x || this.keys.y) {
         const len = Math.hypot(this.keys.x, this.keys.y) || 1;
-        p.target.x = clamp(p.cx + (this.keys.x / len) * REACH, 20, W - 20);
-        p.target.y = clamp(p.cy + (this.keys.y / len) * REACH, 20, H - 20);
+        p.target.x = this.clampX(p.cx + (this.keys.x / len) * REACH, 20);
+        p.target.y = this.clampY(p.cy + (this.keys.y / len) * REACH, 20);
         this.lastInput = 'keys';
         return;
       }
@@ -733,8 +848,8 @@
       // 4) 鼠标跟随 / 触屏“跟随手指”模式：朝指针所在的世界坐标移动
       if (this.pointer.active && this.pointer.x !== undefined) {
         const w = this.screenToWorld(this.pointer.x, this.pointer.y);
-        p.target.x = clamp(w.x, 20, W - 20);
-        p.target.y = clamp(w.y, 20, H - 20);
+        p.target.x = this.clampX(w.x, 20);
+        p.target.y = this.clampY(w.y, 20);
         this.lastInput = 'pointer';
       }
     }
@@ -792,9 +907,12 @@
       L.cx += L.cvx * dt;
       L.cy += L.cvy * dt;
 
+      // 边界：主线是墙；无尽模式的动态战场没有墙，敌军可以一直跑（跑远了会判溃逃换新）
       const R = L.radius;
-      L.cx = clamp(L.cx, R * 0.4 + 8, this.world.w - R * 0.4 - 8);
-      L.cy = clamp(L.cy, R * 0.4 + 8, this.world.h - R * 0.4 - 8);
+      if (!this.dynWorld) {
+        L.cx = this.clampX(L.cx, R * 0.4 + 8);
+        L.cy = this.clampY(L.cy, R * 0.4 + 8);
+      }
 
       /* --- 单位跟随编队 --- */
       const maxU = CFG.move.unitMax * Math.max(0.85, speedMul);
@@ -813,11 +931,15 @@
         u.vy = lerp(u.vy, vty, ek);
         u.x += u.vx * dt;
         u.y += u.vy * dt;
-        // 边界
-        if (u.x < 6) { u.x = 6; u.vx = 0; }
-        if (u.y < 6) { u.y = 6; u.vy = 0; }
-        if (u.x > this.world.w - 6) { u.x = this.world.w - 6; u.vx = 0; }
-        if (u.y > this.world.h - 6) { u.y = this.world.h - 6; u.vy = 0; }
+        // 边界（无尽模式的动态战场没有墙，只靠编队跟随约束）
+        if (!this.dynWorld) {
+          const lx = this.world.x + 6, ly = this.world.y + 6;
+          const rx = this.world.x + this.world.w - 6, by = this.world.y + this.world.h - 6;
+          if (u.x < lx) { u.x = lx; u.vx = 0; }
+          if (u.y < ly) { u.y = ly; u.vy = 0; }
+          if (u.x > rx) { u.x = rx; u.vx = 0; }
+          if (u.y > by) { u.y = by; u.vy = 0; }
+        }
         u.ph += dt * 5.5;
         if (u.flash > 0) u.flash -= dt;
       }
@@ -873,7 +995,8 @@
     }
 
     updateNeutrals(dt) {
-      const W = this.world.w, H = this.world.h;
+      const lx = this.world.x + 16, ly = this.world.y + 16;
+      const rx = this.world.x + this.world.w - 16, by = this.world.y + this.world.h - 16;
       const p = this.player;
       const lureR = (p.alive && p.hasFx('lure')) ? SKILLS.lure.levels[this.skillLv('lure') - 1].radius : 0;
 
@@ -895,10 +1018,10 @@
 
         N.x += N.vx * dt;
         N.y += N.vy * dt;
-        if (N.x < 16) { N.x = 16; N.dir = Math.PI - N.dir; }
-        if (N.y < 16) { N.y = 16; N.dir = -N.dir; }
-        if (N.x > W - 16) { N.x = W - 16; N.dir = Math.PI - N.dir; }
-        if (N.y > H - 16) { N.y = H - 16; N.dir = -N.dir; }
+        if (N.x < lx) { N.x = lx; N.dir = Math.PI - N.dir; }
+        if (N.y < ly) { N.y = ly; N.dir = -N.dir; }
+        if (N.x > rx) { N.x = rx; N.dir = Math.PI - N.dir; }
+        if (N.y > by) { N.y = by; N.dir = -N.dir; }
         N.ph += dt * 4;
 
         // 收编判定：3x3 邻域网格中找最近的小人
@@ -1105,13 +1228,25 @@
       if (flee && fleeD < dangerR) {
         const dx = c.x - flee.cx, dy = c.y - flee.cy;
         const d = Math.hypot(dx, dy) || 1;
-        // 靠墙时沿墙跑
-        const W = this.world.w, H = this.world.h, m = 240;
         let ex = dx / d, ey = dy / d;
-        if (c.x < m && ex < 0) ex = 0.6;
-        if (c.x > W - m && ex > 0) ex = -0.6;
-        if (c.y < m && ey < 0) ey = 0.6;
-        if (c.y > H - m && ey > 0) ey = -0.6;
+        if (this.dynWorld) {
+          // 动态战场没有墙：跑远了就改成绕着玩家转，既不会被甩出战场，
+          // 又能让「我方更快（惊慌减速）」的优势真正转化成追上并吃掉
+          if (!L.ai.spin) L.ai.spin = Math.random() < 0.5 ? -1 : 1;
+          const p = this.player;
+          const pd = Math.sqrt(dist2(c.x, c.y, p.cx, p.cy));
+          if (pd > this.dynR * ENDLESS.enemyLeash) {
+            const a = Math.atan2(c.y - p.cy, c.x - p.cx) + L.ai.spin * Math.PI * 0.5;
+            ex = Math.cos(a); ey = Math.sin(a);
+          }
+        } else {
+          // 靠墙时沿墙跑
+          const W = this.world.w, H = this.world.h, m = 240;
+          if (c.x < m && ex < 0) ex = 0.6;
+          if (c.x > W - m && ex > 0) ex = -0.6;
+          if (c.y < m && ey < 0) ey = 0.6;
+          if (c.y > H - m && ey > 0) ey = -0.6;
+        }
         const el = Math.hypot(ex, ey) || 1;
         tx = c.x + (ex / el) * 460;
         ty = c.y + (ey / el) * 460;
@@ -1127,15 +1262,28 @@
           if (d < bd) { bd = d; bx = N.x; by = N.y; bn = 1; }
         }
         if (bn === 0) {
-          tx = rnd(200, this.world.w - 200);
-          ty = rnd(200, this.world.h - 200);
+          if (this.dynWorld) {
+            // 场上暂时没有中立小人：在战场内绕玩家找一个巡逻点
+            const a = Math.random() * TAU, rad = rnd(this.dynR * 0.3, this.dynR * 0.7);
+            tx = this.dynCenter.x + Math.cos(a) * rad;
+            ty = this.dynCenter.y + Math.sin(a) * rad;
+          } else {
+            tx = rnd(200, this.world.w - 200);
+            ty = rnd(200, this.world.h - 200);
+          }
         } else {
           tx = bx + rnd(-70, 70);
           ty = by + rnd(-70, 70);
         }
       }
-      L.target.x = clamp(tx, 120, this.world.w - 120);
-      L.target.y = clamp(ty, 120, this.world.h - 120);
+      if (this.dynWorld) {
+        // 动态战场：目标不出战场即可（不夹在玩家身边，避免被“拖着跑”）
+        L.target.x = this.clampX(tx, 60);
+        L.target.y = this.clampY(ty, 60);
+      } else {
+        L.target.x = clamp(tx, 120, this.world.w - 120);
+        L.target.y = clamp(ty, 120, this.world.h - 120);
+      }
     }
 
     /* ===== 粒子与文字 ===== */
@@ -1240,7 +1388,6 @@
       this.releaseInput();                  // 松手，避免回到画面后还朝旧方向狂奔
       this.player.target.x = this.player.cx;   // 原地待命，等选完奖励再出发
       this.player.target.y = this.player.cy;
-      this.expandEndlessWorld();
       this.player.skillCd = 0;              // 里程碑奖励一次立即开技能的机会
       SFX.win();
 
@@ -1273,6 +1420,8 @@
       if (this.legions.length > 12) {
         this.legions = this.legions.filter(L => L.alive || L.isPlayer);
       }
+      // 跑出战场的敌军判为溃逃：回收，再由下面的补位换成新的一支（永远有仗可打）
+      this.cullEscapedEnemies();
 
       // 敌军支数随规模上涨
       const want = Math.min(ENDLESS.maxEnemies, 2 + Math.floor(pop / 45));
@@ -1310,7 +1459,7 @@
 
     spawnEndlessEnemy(pop) {
       const p = this.player;
-      const W = this.world.w, H = this.world.h;
+      const R = this.dynR;
       const palettes = ENEMY_PALETTES.filter(pl => colorDistance(pl.body, p.body) > 150);
       const pool = palettes.length ? palettes : ENEMY_PALETTES;
       const used = this.legions.filter(L => L.alive && !L.isPlayer).map(L => L.body);
@@ -1320,18 +1469,24 @@
       }
 
       const idx = used.length;
+      // 登场距离按战场半径取，保证「在战场内、但不在脸上」
+      const near = Math.max(900, R * ENDLESS.enemyNear);
+      const far = Math.max(near + 160, R * ENDLESS.enemyFar);
       let x = p.cx, y = p.cy;
       for (let t = 0; t < 24; t++) {
-        const ang = Math.random() * TAU, rad = rnd(900, 1600);
-        x = clamp(p.cx + Math.cos(ang) * rad, 160, W - 160);
-        y = clamp(p.cy + Math.sin(ang) * rad, 160, H - 160);
-        if (dist2(x, y, p.cx, p.cy) > 800 * 800) break;
+        const ang = Math.random() * TAU, rad = rnd(near, far);
+        x = p.cx + Math.cos(ang) * rad;
+        y = p.cy + Math.sin(ang) * rad;
+        if (this.inArena(x, y, 0.9)) break;
       }
 
       const st = endlessEnemyStats(pop);
       const A = new Legion({
         name: pal.name, body: pal.body, style: 'plain', x, y,
-        ai: { c: 0, sp: st.sp, ag: st.ag, react: st.react, t: Math.random() * 0.4 },
+        ai: {
+          c: 0, sp: st.sp, ag: st.ag, react: st.react, t: Math.random() * 0.4,
+          spin: Math.random() < 0.5 ? -1 : 1,
+        },
       });
       A.target = { x, y };
       this.legions.push(A);
@@ -1340,31 +1495,6 @@
       this.spawnUnitsCircle(A, Math.max(2, Math.round(target * 0.7)), x, y, 60);
       this.floatText(pal.name + ' 来袭！', x, y - 46, pal.body, 1.4);
       return A;
-    }
-
-    /* 棋盘随里程碑扩大（只补新区域，已放置内容不动） */
-    expandEndlessWorld() {
-      if (!this.endless) return;
-      const t = endlessWorldFor(this.player.count);
-      if (t.w <= this.world.w && t.h <= this.world.h) return;
-      const oldW = this.world.w, oldH = this.world.h;
-      this.world.w = Math.max(oldW, t.w);
-      this.world.h = Math.max(oldH, t.h);
-
-      const decoColors = ['#2a7a4f', '#2f8a58', '#357a63', '#3a6f7a', '#4a6b8a'];
-      const need = Math.max(12, Math.round((this.world.w * this.world.h - oldW * oldH) / 73000));
-      let placed = 0;
-      for (let t2 = 0; t2 < need * 6 && placed < need; t2++) {
-        const x = rnd(60, this.world.w - 60), y = rnd(60, this.world.h - 60);
-        if (x < oldW && y < oldH) continue;
-        this.decor.push({
-          x, y, r: rnd(16, 42),
-          c: decoColors[(Math.random() * decoColors.length) | 0],
-          s: Math.random() * TAU,
-        });
-        placed++;
-      }
-      this.floatText('战场扩大！', this.player.cx, this.player.cy - 70, '#4dd2ff', 1.6);
     }
 
     buildResult(isWin) {
@@ -1412,7 +1542,8 @@
         levelId: L.id,
         levelName: L.name,
         endless: false,
-        stage: 0,
+        milestone: 0,
+        threshold: 0,
         levelIndex: this.levelIndex,
         stars,
         time: this.time,
@@ -1494,6 +1625,7 @@
         time: this.time,
         enemyCount: enemies.length,
         enemies,
+        arenaR: this.dynWorld ? Math.round(this.dynR) : 0,
         skillCd: p.skillCd,
         skillCdMax: (SKILLS[this.run.skillId] ? SKILLS[this.run.skillId].cd : 0) * (1 - clamp(this.buff.cd, 0, 0.6)),
       });
@@ -1678,14 +1810,17 @@
       for (let y = y0; y <= y1; y += cell) { ctx.moveTo(v.x, y); ctx.lineTo(v.x + v.w, y); }
       ctx.stroke();
 
-      // 中心装饰圆环
+      // 中心装饰圆环（只有固定地图才画；动态战场不画任何「圈」，
+      // 避免被误读成一张有边界的场地 —— 无尽模式的地图就是无限延伸的）
+      if (this.dynWorld) return;
       ctx.strokeStyle = 'rgba(120,160,255,0.10)';
       ctx.lineWidth = 6 / this.cam.zoom;
+      const mx = this.world.x + this.world.w / 2, my = this.world.y + this.world.h / 2;
       ctx.beginPath();
-      ctx.arc(this.world.w / 2, this.world.h / 2, 420, 0, TAU);
+      ctx.arc(mx, my, 420, 0, TAU);
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(this.world.w / 2, this.world.h / 2, 780, 0, TAU);
+      ctx.arc(mx, my, 780, 0, TAU);
       ctx.stroke();
     }
 
@@ -1707,9 +1842,10 @@
     }
 
     drawBounds(ctx) {
+      if (this.dynWorld) return;      // 动态战场没有硬边界（地图随玩家持续生成）
       ctx.strokeStyle = 'rgba(120,170,255,0.35)';
       ctx.lineWidth = 6 / this.cam.zoom;
-      ctx.strokeRect(0, 0, this.world.w, this.world.h);
+      ctx.strokeRect(this.world.x, this.world.y, this.world.w, this.world.h);
     }
 
     drawNeutrals(ctx, v) {
@@ -1886,6 +2022,9 @@
       if (!mm || !g) return;
       const W = mm.width, H = mm.height;
       const sx = W / this.world.w, sy = H / this.world.h;
+      // 世界框带原点（动态战场会整体平移），小地图统一做一次坐标映射
+      const ox = this.world.x, oy = this.world.y;
+      const mx = (x) => (x - ox) * sx, my = (y) => (y - oy) * sy;
       g.clearRect(0, 0, W, H);
       g.fillStyle = 'rgba(8,14,32,0.82)';
       roundRect(g, 0, 0, W, H, 10); g.fill();
@@ -1894,13 +2033,13 @@
       g.fillStyle = 'rgba(200,215,255,0.30)';
       for (let i = 0; i < this.neutrals.length; i += 4) {
         const N = this.neutrals[i];
-        g.fillRect(N.x * sx - 0.5, N.y * sy - 0.5, 1.4, 1.4);
+        g.fillRect(mx(N.x) - 0.5, my(N.y) - 0.5, 1.4, 1.4);
       }
       for (const L of this.legions) {
         if (!L.alive) continue;
         const r = L.isPlayer ? 4.2 : 3.2;
         g.beginPath();
-        g.arc(L.cx * sx, L.cy * sy, r, 0, TAU);
+        g.arc(mx(L.cx), my(L.cy), r, 0, TAU);
         g.fillStyle = L.body;
         g.fill();
         if (L.isPlayer) {

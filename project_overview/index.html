@@ -313,22 +313,25 @@
 
       <div class="card">
         <h3>无尽模式的生成规则</h3>
-        <p>无尽模式<b>没有「层」</b>：只有一份由 <code>makeEndlessLevel()</code> 生成的关卡对象，全程同一场对局，
-          人数只增不减；每满 <code>ENDLESS.step</code>（50）人暂停一次三选一，
-          <code>resumeFromMilestone()</code> 直接回到同一场继续。难度按<b>人数 + 时间</b>对齐，不按层数。</p>
+        <p>无尽模式<b>没有「层」</b>：只有一份由 <code>makeEndlessLevel()</code> 生成的关卡对象（<code>dynamicWorld: true</code>），
+          全程同一场对局，人数只增不减；每满 <code>ENDLESS.step</code>（50）人暂停一次三选一，
+          <code>resumeFromMilestone()</code> 直接回到同一场继续。
+          <b>地图是以玩家为中心的动态战场</b>（<code>updateDynamicWorld() + streamWorld()</code>，走到哪生成到哪），
+          敌军按<b>人数 + 时间</b>每秒对齐，两者都不按层数。</p>
         <div class="table-wrap">
   <table class="tbl">
-            <thead><tr><th>项</th><th>规则</th></tr></thead>
-            <tbody>
-              <tr><td>里程碑</td><td>每满 <code>ENDLESS.step = 50</code> 人 → 冻结对局（<code>status = 'milestone'</code>）→ 三选一 → 原场继续</td></tr>
-              <tr><td>棋盘增长</td><td><code>3200×2400</code> 起，每个里程碑 <code>+120×90</code>，上限 <code>4800×3600</code></td></tr>
-              <tr><td>敌军支数</td><td><code>min(2 + ⌊峰值人数 / 45⌋, 7)</code>，阵亡自动补位</td></tr>
-              <tr><td>敌军人数</td><td><code>max(8 + 存活时间 × 0.28, 峰值人数 × 0.30~0.85)</code>（始终略低于我方）</td></tr>
-              <tr><td>成绩记录</td><td>不写星级，更新 <code>stats.endlessBest</code>（单局最高人数）</td></tr>
-            </tbody>
-          </table>
+    <thead><tr><th>项</th><th>规则</th></tr></thead>
+    <tbody>
+      <tr><td>里程碑</td><td>每满 <code>ENDLESS.step = 50</code> 人 → 冻结对局（<code>status = 'milestone'</code>）→ 三选一 → 原场继续</td></tr>
+      <tr><td>动态地图半径</td><td><code>clamp(1500 + 人数 × 1.6, 1400, 2600)</code>，且不小于屏幕对角线的一半；世界框每帧重算为「以玩家为中心、边长 2R」</td></tr>
+      <tr><td>内容存续</td><td>超出 <code>R × 1.18</code> 的中立小人/装饰物回收，在 <code>0.42R ~ 0.96R</code> 环带补新；无硬边界、无墙</td></tr>
+      <tr><td>敌军支数</td><td><code>min(2 + ⌊峰值人数 / 45⌋, 7)</code>，阵亡或溃逃自动补位（<code>1.25R</code> 外判溃逃）</td></tr>
+      <tr><td>敌军人数</td><td><code>max(5 + 存活时间 × 0.22, 峰值人数 × 0.30~0.85)</code>（始终略低于我方）</td></tr>
+      <tr><td>成绩记录</td><td>不写星级，更新 <code>stats.endlessBest</code>（单局最高人数）</td></tr>
+    </tbody>
+  </table>
         </div>
-        <p class="dim tiny">公式逐条摘自 <code>js/config.js</code> 的 <code>ENDLESS</code> 常量与 <code>endlessWorldFor / endlessEnemyTarget / endlessEnemyStats</code>，以及 <code>docs/04-development.md</code> §5。</p>
+        <p class="dim tiny">公式逐条摘自 <code>js/config.js</code> 的 <code>ENDLESS</code> 常量与 <code>endlessViewRadius / endlessEnemyTarget / endlessEnemyStats</code>，以及 <code>docs/04-development.md</code> §5。</p>
       </div>
     </section>
 
@@ -450,7 +453,9 @@ npm run overview:data      # 重新生成本页数据</pre><button class="copy">
           <li>给 Canvas 打桩（jsdom 无绘图能力），其余逻辑全部真跑；</li>
           <li>模拟真实用户点击，遍历主菜单 / 关卡选择 / 商店 / 成就 / 说明 / 出征准备；</li>
           <li>进入对局后验证：滑动控制、收编中立小人、<b>逐个吞噬（正向与反向）</b>、技能、暂停继续、通关结算与三选一、关卡推进、<b>无尽里程碑（暂停三选一后原场继续、人数不重置、棋盘扩大）</b>、失败流程、商店购买、存档持久化；</li>
-          <li>与时间强相关的用例走 <code>ticks(game, n, dt)</code> 固定步长推进，不依赖 rAF 的墙钟步长，结果可复现。</li>
+          <li>与时间强相关的用例走 <code>ticks(game, n, dt)</code> 固定步长推进，不依赖 rAF 的墙钟步长，结果可复现；</li>
+          <li><b>技能/增益「描述 = 实效」校验</b>：构造受控对局逐条量测引擎实际值（7 条增益的数值、6 个技能的范围与秒数），
+          防止 <code>desc</code> 变成假承诺；同时断言关卡模式渲染 1 条边界、无尽模式渲染 0 条边界与 0 个场地圈。</li>
           <li>捕获任何运行期 JS 错误，出现即判定失败。</li>
         </ol>
         <div class="warn">

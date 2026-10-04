@@ -206,7 +206,8 @@ const UI = {
     const tip = this.$('prep-tip');
     if (tip) {
       tip.textContent = this.pendingMode === 'endless'
-        ? ('开局 ' + (Save.data._prepCount || 3) + ' 人起步，敌军会随你的规模持续变强。你的纪录 = 单局最高人数。')
+        ? ('开局 ' + (Save.data._prepCount || 3) + ' 人起步。地图是一块以你为中心、随人数持续变大的战场，'
+          + '中立小人与敌人会不断在周围生成；敌军规模也随你的军团实时变强。纪录 = 单局最高人数。')
         : (lv.tip || '');
     }
     this.updateContinueBtn();
@@ -386,6 +387,12 @@ const UI = {
     }
     const g = this.$('hud-goal');
     if (g) g.textContent = d.goalText;
+    // 无尽模式：把「战场半径」显示在关卡标题上，让动态地图的变化看得见
+    const lv = this.$('hud-level');
+    if (lv && this.run && this.run.mode === 'endless' && d.arenaR) {
+      const txt = '无尽模式 · 战场半径 ' + d.arenaR;
+      if (lv.textContent !== txt) lv.textContent = txt;
+    }
     const f = this.$('goalbar-fill');
     if (f) f.style.width = (d.progress * 100).toFixed(1) + '%';
     const t = this.$('hud-timer');
