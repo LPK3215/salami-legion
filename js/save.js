@@ -17,7 +17,7 @@ function defaultSave() {
     stats: {
       wins: 0, totalEaten: 0, totalCoins: 0,
       bestCount: 0, flawless: 0, comeback: 0, plays: 0,
-      endlessBest: 0,   // 无尽模式最高层数
+      endlessBest: 0,   // 无尽模式单局最高人数
     },
     settings: {
       sound: true,

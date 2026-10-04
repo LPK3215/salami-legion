@@ -176,39 +176,66 @@ const LEVELS = [
     tip: '主线最后一关。通关后主菜单的「无尽挑战」将是你真正的战场' },
 ];
 
-/* ---------------- 无尽模式：层数程序化生成 ----------------
-   无限层数，每层目标人数递增、敌军更多更强、棋盘逐层扩大（有上限）。 */
-function makeEndlessStage(n) {
-  const grown = Math.min(n - 1, 14);
-  const world = { w: 3000 + grown * 110, h: 2200 + grown * 80 };
+/* ---------------- 无尽模式：一次连续对局，没有「层」 ----------------
+   规则：军团人数只增不减（不会重置），每满 ENDLESS.step 人弹一次三选一奖励，
+   选完立刻接着打；只有全军覆没才会结束。敌军规模随我方人数与存活时间持续递增。 */
+const ENDLESS = {
+  step: 50,                          // 每增长 50 人 → 三选一奖励
+  baseWorld: { w: 3200, h: 2400 },   // 起始棋盘
+  maxWorld:  { w: 4800, h: 3600 },   // 棋盘上限
+  worldGrow: { w: 120, h: 90 },      // 每过一个里程碑扩大的尺寸
+  maxEnemies: 7,                     // 场上敌军数量上限
+  ratioMin: 0.30,                    // 最弱敌军人数 / 我方人数
+  ratioMax: 0.85,                    // 最强敌军人数 / 我方人数（仍略低于我方，保证能吃）
+  aiCapRatio: 0.95,                  // 敌军收编中立小人的人数上限系数
+};
 
-  const enemyCount = Math.min(2 + Math.floor((n - 1) / 2), 7);
-  const baseCount = 6 + (n - 1) * 4;
-  const enemies = [];
-  for (let i = 0; i < enemyCount; i++) {
-    enemies.push({
-      c: Math.round(baseCount * (1 + i * 0.16)),
-      sp: Math.min(1.18, 0.92 + (n - 1) * 0.012),
-      ag: Math.min(0.88, 0.36 + (n - 1) * 0.035),
-      react: Math.max(0.28, 0.70 - (n - 1) * 0.028),
-    });
-  }
-
-  const goalVal = 25 + n * 15;
+/* 按当前人数给出无尽棋盘尺寸（随里程碑逐级扩大，有上限） */
+function endlessWorldFor(count) {
+  const steps = Math.floor(Math.max(0, count) / ENDLESS.step);
   return {
-    id: 'E' + n,
-    name: '第 ' + n + ' 层',
-    stage: n,
+    w: Math.min(ENDLESS.maxWorld.w, ENDLESS.baseWorld.w + steps * ENDLESS.worldGrow.w),
+    h: Math.min(ENDLESS.maxWorld.h, ENDLESS.baseWorld.h + steps * ENDLESS.worldGrow.h),
+  };
+}
+
+/* 第 index 支敌军的目标人数：随我方规模递增，且即使原地不动也会随时间慢慢加压 */
+function endlessEnemyTarget(pop, time, index, total) {
+  const span = total > 1 ? index / (total - 1) : 0;
+  const ratio = ENDLESS.ratioMin + (ENDLESS.ratioMax - ENDLESS.ratioMin) * span;
+  const creep = 8 + Math.max(0, time) * 0.28;
+  return Math.max(4, Math.round(Math.max(creep, Math.max(10, pop) * ratio)));
+}
+
+/* 敌军的移动/好斗/反应参数：随我方规模增强，各有上限 */
+function endlessEnemyStats(pop) {
+  const p = Math.max(10, pop);
+  return {
+    sp: Math.min(1.25, 0.90 + p / 1800),
+    ag: Math.min(0.92, 0.34 + p / 1100),
+    react: Math.max(0.26, 0.70 - p / 1600),
+  };
+}
+
+/* 无尽模式的起始关卡对象（结构与主线关卡一致，额外带 endless / goal.type='endless'） */
+function makeEndlessLevel() {
+  const st = endlessEnemyStats(10);
+  const enemies = [];
+  for (let i = 0; i < 3; i++) {
+    enemies.push({ c: 6 + i * 4, sp: st.sp, ag: st.ag, react: st.react });
+  }
+  return {
+    id: 'E',
+    name: '无尽模式',
     endless: true,
-    goal: { type: 'reach', val: goalVal },
-    neutral: Math.min(380, 140 + n * 18),
-    par: 75 + n * 6,
-    gold: 55 + n * 5,
-    coins: 20 + n * 6,
-    world: world,
+    goal: { type: 'endless', step: ENDLESS.step },
+    neutral: 180,
+    par: 0,
+    gold: 0,
+    coins: 30,
+    world: endlessWorldFor(0),
     enemies: enemies,
-    tip: '无尽模式第 ' + n + ' 层：目标 ' + goalVal + ' 人，敌军 ' + enemyCount +
-         ' 支（最强 ' + enemies[enemies.length - 1].c + ' 人）',
+    tip: '人数只增不减：每满 ' + ENDLESS.step + ' 人弹出一次三选一，敌军会随你的规模越滚越强',
   };
 }
 
@@ -226,8 +253,8 @@ const ACHIEVEMENTS = [
   { id: 'allstars',  name: '全星达人', desc: '累计获得 30 颗星', coins: 320, check: s => totalStars(s) >= 30 },
   { id: 'collector', name: '收藏家',   desc: '解锁 5 款皮肤', coins: 200, check: s => s.skinsOwned.length >= 5 },
   { id: 'rich',      name: '富甲一方', desc: '累计获得 3000 金币', coins: 350, check: s => s.stats.totalCoins >= 3000 },
-  { id: 'endless_5', name: '无尽征途', desc: '无尽模式到达第 5 层', coins: 150, check: s => (s.stats.endlessBest || 0) >= 5 },
-  { id: 'endless_10', name: '长夜漫漫', desc: '无尽模式到达第 10 层', coins: 300, check: s => (s.stats.endlessBest || 0) >= 10 },
+  { id: 'endless_100', name: '无尽征途', desc: '无尽模式单局达到 100 人', coins: 150, check: s => (s.stats.endlessBest || 0) >= 100 },
+  { id: 'endless_250', name: '长夜漫漫', desc: '无尽模式单局达到 250 人', coins: 300, check: s => (s.stats.endlessBest || 0) >= 250 },
 ];
 
 function totalStars(s) {

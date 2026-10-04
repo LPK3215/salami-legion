@@ -1,6 +1,6 @@
 /* 本文件由 scripts/visualization/generate_overview_facts.mjs 自动生成，请勿手工编辑。
  *    重新生成：node scripts/visualization/generate_overview_facts.mjs  或  npm run overview:data
- *    生成时间：2026-10-04 12:48Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
+ *    生成时间：2026-10-04 14:38Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
  *    js/save.js、package.json、css/style.css、index.html、test/dom.test.js、docs/04-development.md）。 */
 window.OVERVIEW_FACTS = {
  "meta": {
@@ -19,7 +19,7 @@ window.OVERVIEW_FACTS = {
   "runtimeDeps": 0,
   "devDeps": 1,
   "saveKey": "mini_legion_save_v1",
-  "generatedAt": "2026-10-04 12:48Z",
+  "generatedAt": "2026-10-04 14:38Z",
   "generator": "scripts/visualization/generate_overview_facts.mjs"
  },
  "content": {
@@ -59,26 +59,26 @@ window.OVERVIEW_FACTS = {
  "lines": {
   "index.html": 267,
   "css/style.css": 564,
-  "js/config.js": 257,
-  "js/engine.js": 1723,
-  "js/ui.js": 788,
+  "js/config.js": 284,
+  "js/engine.js": 1915,
+  "js/ui.js": 808,
   "js/save.js": 98,
   "js/audio.js": 53,
   "server.js": 126,
-  "test/dom.test.js": 564,
+  "test/dom.test.js": 592,
   "scripts/start.sh": 56
  },
  "test": {
   "sections": 17,
-  "asserts": 104,
+  "asserts": 113,
   "checks": 39,
-  "lines": 564
+  "lines": 592
  },
  "totals": {
-  "jsLines": 2919,
+  "jsLines": 3158,
   "cssLines": 564,
   "htmlLines": 267,
-  "testLines": 564,
+  "testLines": 592,
   "docFiles": 5,
   "screens": 9,
   "skinStyles": [
@@ -787,15 +787,15 @@ window.OVERVIEW_FACTS = {
    "coins": 350
   },
   {
-   "id": "endless_5",
+   "id": "endless_100",
    "name": "无尽征途",
-   "desc": "无尽模式到达第 5 层",
+   "desc": "无尽模式单局达到 100 人",
    "coins": 150
   },
   {
-   "id": "endless_10",
+   "id": "endless_250",
    "name": "长夜漫漫",
-   "desc": "无尽模式到达第 10 层",
+   "desc": "无尽模式单局达到 250 人",
    "coins": 300
   }
  ],
@@ -894,8 +894,8 @@ window.OVERVIEW_FACTS = {
   "11. checkGoal()       判定胜负"
  ],
  "faq": {
-  "questions": 28,
-  "lines": 166
+  "questions": 29,
+  "lines": 172
  },
  "tree": [
   {
@@ -921,35 +921,35 @@ window.OVERVIEW_FACTS = {
      "name": "01-gameplay.md",
      "path": "docs/01-gameplay.md",
      "type": "file",
-     "bytes": 7686,
+     "bytes": 7727,
      "lines": 151
     },
     {
      "name": "02-modes.md",
      "path": "docs/02-modes.md",
      "type": "file",
-     "bytes": 8809,
-     "lines": 180
+     "bytes": 10484,
+     "lines": 186
     },
     {
      "name": "03-systems.md",
      "path": "docs/03-systems.md",
      "type": "file",
-     "bytes": 7184,
+     "bytes": 7202,
      "lines": 165
     },
     {
      "name": "04-development.md",
      "path": "docs/04-development.md",
      "type": "file",
-     "bytes": 16232,
-     "lines": 380
+     "bytes": 17882,
+     "lines": 407
     },
     {
      "name": "05-controls-and-layout.md",
      "path": "docs/05-controls-and-layout.md",
      "type": "file",
-     "bytes": 13553,
+     "bytes": 13562,
      "lines": 275
     },
     {
@@ -970,7 +970,7 @@ window.OVERVIEW_FACTS = {
      "name": "content-scale.svg",
      "path": "docs/content-scale.svg",
      "type": "file",
-     "bytes": 6454,
+     "bytes": 6503,
      "lines": 66
     }
    ]
@@ -991,29 +991,29 @@ window.OVERVIEW_FACTS = {
      "name": "config.js",
      "path": "js/config.js",
      "type": "file",
-     "bytes": 14985,
-     "lines": 257
+     "bytes": 16262,
+     "lines": 284
     },
     {
      "name": "engine.js",
      "path": "js/engine.js",
      "type": "file",
-     "bytes": 63890,
-     "lines": 1723
+     "bytes": 70080,
+     "lines": 1915
     },
     {
      "name": "save.js",
      "path": "js/save.js",
      "type": "file",
-     "bytes": 2907,
+     "bytes": 2815,
      "lines": 98
     },
     {
      "name": "ui.js",
      "path": "js/ui.js",
      "type": "file",
-     "bytes": 29890,
-     "lines": 788
+     "bytes": 30763,
+     "lines": 808
     }
    ]
   },
@@ -1040,29 +1040,29 @@ window.OVERVIEW_FACTS = {
      "name": "charts.js",
      "path": "project_overview/charts.js",
      "type": "file",
-     "bytes": 10013,
+     "bytes": 10053,
      "lines": 216
     },
     {
      "name": "index.html",
      "path": "project_overview/index.html",
      "type": "file",
-     "bytes": 33110,
-     "lines": 547
+     "bytes": 33855,
+     "lines": 550
     },
     {
      "name": "script.js",
      "path": "project_overview/script.js",
      "type": "file",
-     "bytes": 21606,
+     "bytes": 21603,
      "lines": 428
     },
     {
      "name": "style.css",
      "path": "project_overview/style.css",
      "type": "file",
-     "bytes": 25722,
-     "lines": 551
+     "bytes": 31975,
+     "lines": 650
     }
    ]
   },
@@ -1094,7 +1094,7 @@ window.OVERVIEW_FACTS = {
        "name": "generate_content_scale_svg.mjs",
        "path": "scripts/visualization/generate_content_scale_svg.mjs",
        "type": "file",
-       "bytes": 5613,
+       "bytes": 5662,
        "lines": 90
       },
       {
@@ -1131,8 +1131,8 @@ window.OVERVIEW_FACTS = {
      "name": "dom.test.js",
      "path": "test/dom.test.js",
      "type": "file",
-     "bytes": 29517,
-     "lines": 564
+     "bytes": 31184,
+     "lines": 592
     }
    ]
   },
@@ -1182,8 +1182,8 @@ window.OVERVIEW_FACTS = {
    "name": "CHANGELOG.md",
    "path": "CHANGELOG.md",
    "type": "file",
-   "bytes": 9565,
-   "lines": 125
+   "bytes": 12061,
+   "lines": 150
   },
   {
    "name": "CODE_OF_CONDUCT.md",
@@ -1196,21 +1196,21 @@ window.OVERVIEW_FACTS = {
    "name": "CONTRIBUTING.md",
    "path": "CONTRIBUTING.md",
    "type": "file",
-   "bytes": 10594,
-   "lines": 178
+   "bytes": 10755,
+   "lines": 189
   },
   {
    "name": "FAQ.md",
    "path": "FAQ.md",
    "type": "file",
-   "bytes": 10279,
-   "lines": 166
+   "bytes": 10716,
+   "lines": 172
   },
   {
    "name": "index.html",
    "path": "index.html",
    "type": "file",
-   "bytes": 11586,
+   "bytes": 11774,
    "lines": 267
   },
   {
@@ -1245,8 +1245,8 @@ window.OVERVIEW_FACTS = {
    "name": "README.md",
    "path": "README.md",
    "type": "file",
-   "bytes": 11561,
-   "lines": 210
+   "bytes": 11884,
+   "lines": 212
   },
   {
    "name": "SECURITY.md",

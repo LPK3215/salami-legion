@@ -82,6 +82,9 @@ const harness = `
     const step = () => { if (++i >= n) return r(); requestAnimationFrame(step); };
     requestAnimationFrame(step);
   });
+  // 固定步长推进模拟：rAF 的真实步长在不同机器上波动很大，
+  // 会让「逐个吞噬」这类依赖时间的断言变得随机，这里用固定 dt 保证可复现。
+  const ticks = (game, n, dt) => { for (let i = 0; i < n; i++) game.update(dt || 0.02); };
 
   try {
     /* ========== 1. 等待 load，等同一个真实浏览器页面 ========== */
@@ -306,8 +309,10 @@ const harness = `
     }
     p.target.x = best.x; p.target.y = best.y;
     const c0 = p.count;
-    await frames(240);
+    // 固定步长推进：一旦收编成功就停手，避免一路吃满触发通关、让后续断言失去对局环境
+    for (let i = 0; i < 300 && p.count === c0 && g.status === 'playing'; i++) ticks(g, 1);
     assert(p.count > c0, '接近中立小人后人数未增长: ' + c0 + ' -> ' + p.count);
+    assert(g.status === 'playing', '收编测试后对局应仍在进行，实际 ' + g.status);
     ok('中立小人可被收编：' + c0 + ' 人 -> ' + p.count + ' 人');
 
     /* ========== 9. 核心机制：逐个单位吞噬 ========== */
@@ -332,7 +337,7 @@ const harness = `
     const foeBefore = foe.count;
     const snapshots = [];
     for (let i = 0; i < 20; i++) {
-      await frames(20);
+      ticks(g, 20);
       snapshots.push({ foe: foe.count, me: p.count });
       if (foe.count === 0) break;
     }
@@ -358,8 +363,10 @@ const harness = `
     const foeBig = foe.count;
     let minMe = meBeforeLose;
     for (let i = 0; i < 6; i++) {
-      await frames(20);
+      ticks(g, 20);
       minMe = Math.min(minMe, p.count);
+      // 验证的是「劣势会被逐个吞掉」，不是「一定被吞光」，留 4 人保底不触发失败流程
+      if (g.status !== 'playing' || p.count <= 4) break;
     }
     assert(minMe < meBeforeLose, '人数劣势时应被敌方逐个吞掉，实际 ' + meBeforeLose + ' -> ' + minMe);
     assert(minMe > 0, '测试中我方不应全灭');
@@ -442,45 +449,66 @@ const harness = `
       '操作按钮文案异常：' + $('btn-control').textContent);
     ok('操作方式可循环切换：' + [mode0, mode1, mode2, mode3].join(' → ') + '，按钮文案「' + $('btn-control').textContent + '」');
 
-    /* ========== 15. 无尽模式（无限层数 + 棋盘逐层扩大） ========== */
+    /* ========== 15. 无尽模式（没有「层」，人数不重置，每 50 人三选一） ========== */
     click($('btn-endless'), 'btn-endless');
     assert(active('screen-prep'), '无尽模式未进入出征准备页');
     assert(String($('prep-title').textContent).indexOf('无尽') >= 0, '无尽准备页标题未体现模式');
+    const prepGoal = String($('prep-goal').textContent);
+    assert(prepGoal.indexOf('每层') < 0 && prepGoal.indexOf('层数') < 0, '无尽准备页不应再按层数描述');
+    assert(prepGoal.indexOf('里程碑') >= 0, '无尽准备页应说明里程碑（每 50 人三选一）规则');
     click($('btn-prep-go'), 'btn-prep-go');
     await wait(220);
     const ge = UI.game;
     assert(ge, '无尽模式游戏实例未创建');
     assert(ge.level.endless === true, '关卡未标记为无尽模式');
-    assert(ge.level.stage === 1, '无尽起始层应为 1，实际 ' + ge.level.stage);
-    ok('无尽模式启动：第 ' + ge.level.stage + ' 层 · 目标 ' + ge.level.goal.val +
-       ' 人 · 敌军 ' + ge.level.enemies.length + ' 支 · 棋盘 ' + ge.world.w + '×' + ge.world.h);
+    assert(ge.level.goal.type === 'endless', '无尽模式目标类型应为 endless，实际 ' + ge.level.goal.type);
+    const STEP = ge.level.goal.step;
+    const e1WorldW = ge.world.w;
+    ok('无尽模式启动：单局连续对局 · 每 ' + STEP + ' 人一次三选一 · 棋盘 ' + ge.world.w + '×' + ge.world.h);
 
-    const e1Goal = ge.level.goal.val, e1WorldW = ge.world.w;
-    while (ge.player.count < e1Goal) ge.player.addUnit(ge.player.cx, ge.player.cy);
+    // 达到第一个里程碑 → 暂停并弹出三选一
+    while (ge.player.count < STEP) ge.player.addUnit(ge.player.cx, ge.player.cy);
     await frames(30);
-    assert(active('screen-reward'), '无尽通关后未弹出奖励页');
-    assert(Save.data.stats.endlessBest === 1, '最高层纪录未更新，实际 ' + Save.data.stats.endlessBest);
+    assert(active('screen-reward'), '里程碑达成后未弹出奖励页');
+    assert(ge.status === 'milestone', '里程碑期间对局应冻结，实际 ' + ge.status);
+    assert(Save.data.stats.endlessBest === STEP, '最高人数纪录未更新，实际 ' + Save.data.stats.endlessBest);
+    assert(String($('reward-title').textContent).indexOf('里程碑') >= 0,
+      '结算标题应体现里程碑，实际 ' + $('reward-title').textContent);
     const cards2 = document.querySelectorAll('#reward-cards .reward-card');
     assert(cards2.length === 3, '无尽奖励仍应为三选一');
+    const cardText = Array.prototype.map.call(cards2, c => c.textContent).join('|');
+    assert(cardText.indexOf('解锁开局') < 0, '无尽里程碑不应出现「解锁开局人数」卡');
     click(cards2[0], '无尽奖励卡');
-    assert(String($('btn-reward-next').textContent).indexOf('下一层') >= 0,
-      '无尽模式按钮文案应为“进入下一层”，实际 ' + $('btn-reward-next').textContent);
-    ok('无尽通关结算：三选一正常，纪录 第 ' + Save.data.stats.endlessBest + ' 层，按钮文案正确');
+    assert(String($('btn-reward-next').textContent).indexOf('继续') >= 0,
+      '无尽模式按钮文案应为「继续无尽挑战」，实际 ' + $('btn-reward-next').textContent);
+    ok('里程碑结算：三选一正常 · 纪录 ' + Save.data.stats.endlessBest + ' 人 · 按钮文案正确');
 
+    // 继续：必须是同一场对局、人数不重置
+    const countBefore = ge.player.count;
     click($('btn-reward-next'), 'btn-reward-next');
-    await wait(240);
-    const ge2 = UI.game;
-    assert(ge2 && ge2 !== ge, '未创建新的无尽关卡实例');
-    assert(ge2.level.stage === 2, '应进入第 2 层，实际 ' + (ge2 && ge2.level.stage));
-    assert(ge2.level.goal.val > e1Goal, '层数提升后目标人数应更高');
-    assert(ge2.level.enemies.length >= ge.level.enemies.length, '层数提升后敌军数量不应减少');
-    assert(ge2.world.w > e1WorldW, '层数提升后棋盘应变大');
-    ok('无尽推进：第 2 层 · 目标 ' + ge2.level.goal.val + ' 人 · 棋盘 ' + ge2.world.w + '×' + ge2.world.h + '（逐层扩大）');
+    await wait(120);
+    assert(active('screen-game'), '继续后未回到对局画面');
+    assert(UI.game === ge, '无尽模式应沿用同一场对局，而不是重开');
+    assert(ge.status === 'playing', '继续后对局应恢复运行，实际 ' + ge.status);
+    assert(ge.player.count >= countBefore, '继续后人数不应重置（' + countBefore + ' → ' + ge.player.count + '）');
+    assert(ge.nextMilestone === STEP * 2, '下一个里程碑应为 ' + (STEP * 2) + '，实际 ' + ge.nextMilestone);
+
+    // 第二个里程碑同样触发，且棋盘随规模扩大
+    while (ge.player.count < STEP * 2) ge.player.addUnit(ge.player.cx, ge.player.cy);
+    await frames(30);
+    assert(active('screen-reward'), '第二个里程碑未弹出奖励页');
+    assert(ge.world.w >= e1WorldW, '棋盘不应缩小');
+    ok('里程碑推进：' + (STEP * 2) + ' 人 · 棋盘 ' + ge.world.w + '×' + ge.world.h +
+       ' · 同一场对局人数累积不重置');
+    click(document.querySelectorAll('#reward-cards .reward-card')[0], '无尽奖励卡2');
+    click($('btn-reward-next'), 'btn-reward-next');
+    await wait(120);
 
     assert(UI.run && UI.run.mode === 'endless', 'run.mode 应为 endless');
     assert(String($('hud-level').textContent).indexOf('无尽') >= 0, 'HUD 关卡标题未体现无尽');
 
     click($('btn-pause'), 'btn-pause');
+    assert(active('pause-overlay'), '暂停遮罩未出现');
     click($('btn-quit'), 'btn-quit');
     assert(active('screen-menu'), '退出无尽模式后未回到主菜单');
     ok('无尽模式可暂停并随时退出');

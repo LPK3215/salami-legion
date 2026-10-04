@@ -10,6 +10,25 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **无尽模式重做：去掉「层」，改为一场连续对局。** 原实现是「无限层数」——每层一个目标人数，
+  达标即结算、人数清空重来。新规则是：
+  - 无尽模式只有**一份关卡对象**（`makeEndlessLevel()`），全程同一场对局，**人数只增不减、绝不重置**；
+  - 每满 `ENDLESS.step = 50` 人触发一次**里程碑**：对局冻结（新增引擎状态 `status = 'milestone'`）
+    并弹三选一，`resumeFromMilestone()` 回到**同一场**继续（UI 侧不再新建 `Game`）；
+  - 难度不再按层生成，改由 `endlessRamp()` 每秒按**人数 + 存活时间**对齐：
+    敌军支数 `min(2 + ⌊峰值人数/45⌋, 7)`、每支人数 `max(8 + 存活时间×0.28, 峰值人数×0.30~0.85)`
+    （始终略低于我方，保证一对一能吃）、阵亡自动补位；
+  - 棋盘 `3200×2400` 起，每个里程碑 `+120×90`，上限 `4800×3600`（`expandEndlessWorld()` 只补新区域）；
+  - 记录口径从「最高层」改为「**单局最高人数**」，`stats.endlessBest` 字段名保持不变（老存档自动兼容）；
+  - 里程碑奖励池在无尽模式下调高技能卡权重、去掉「解锁开局人数」卡，更接近「选一个技能」；
+  - 成就 `endless_5 / endless_10`（第 5 / 10 层）替换为 `endless_100 / endless_250`（单局 100 / 250 人）。
+- 相关文案与文档同步改写：主菜单按钮「最高 N 层」→「最高 N 人」、出征准备页、玩法说明页、
+  `docs/02-modes.md`（§0 问答 / §2 无尽挑战 / §4 生命周期 / §5 对比表）、`docs/03-systems.md`、
+  `docs/04-development.md` §5、`docs/01-gameplay.md`、`docs/05-controls-and-layout.md`、
+  `README.md`、`FAQ.md`、概览页与其图表生成器。
+
 ### Added
 
 - **两页互通入口**：游戏主菜单底部新增「项目介绍」入口（真 `<a id="btn-about" href="./project_overview/"
@@ -84,6 +103,12 @@
   导航走。浏览器实测坐实后改为真 `<a target="_blank">`，复验确认：点击后原标签 URL 不变、
   `#screen-menu` 仍 active、文档未重新加载（`performance.now()` 单调递增未归零）。
 - 该陷阱已写进 [CONTRIBUTING.md](CONTRIBUTING.md) 第 7 条约束，避免重踩。
+- **端到端测试不再随机抖动**：`test/dom.test.js` 新增 `ticks(game, n, dt)` 固定步长入口，
+  与时间强相关的用例（逐个吞噬、反向吞噬、收编中立小人、无尽里程碑）改为直接以秒为单位推进
+  `game.update(dt)`，不再依赖 `requestAnimationFrame` 的墙钟步长（旧写法在负载下实测约 2/6 概率失败，
+  表现为「递减次数=1」「敌方应被杀光，实际剩 3」「我方不应全灭」三种随机面貌）。
+  涉及「会不会打光 / 会不会提前通关」的循环也补上了退出条件。
+  修法与原根因已写进 [CONTRIBUTING.md](CONTRIBUTING.md) 第 6 节（含一条别再踩的弯路）。
 
 ### Removed
 

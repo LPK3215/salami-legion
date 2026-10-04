@@ -78,7 +78,7 @@ const UI = {
       this.run = null;
       this.pendingMode = mode;
       if (mode === 'endless') {
-        this.openPrep();                       // 无尽模式失败后从第 1 层重开
+        this.openPrep();                       // 无尽模式失败 = 本轮结束，重新开局
       } else {
         const lv = LEVELS[Math.max(0, Math.min(LEVELS.length - 1, i))];
         this.pendingLevel = lv.id;
@@ -164,7 +164,7 @@ const UI = {
   refreshCoins() {
     this.$$('.js-coins').forEach(el => { el.textContent = Save.data.coins; });
     const eb = this.$('endless-best');
-    if (eb) eb.textContent = '最高 第 ' + (Save.data.stats.endlessBest || 0) + ' 层';
+    if (eb) eb.textContent = '最高 ' + (Save.data.stats.endlessBest || 0) + ' 人';
   },
 
   updateContinueBtn() {
@@ -173,7 +173,7 @@ const UI = {
     b.hidden = !this.run;
     if (!this.run) return;
     b.textContent = this.run.mode === 'endless'
-      ? ('继续挑战 · 无尽 第 ' + (this.run.stage || 1) + ' 层')
+      ? '继续挑战 · 无尽模式'
       : ('继续挑战 · 第 ' + (LEVELS[this.run.levelIndex] ? LEVELS[this.run.levelIndex].id : 1) + ' 关');
   },
 
@@ -184,7 +184,7 @@ const UI = {
     this.pendingMode = this.pendingMode || 'campaign';
     let lv;
     if (this.pendingMode === 'endless') {
-      lv = makeEndlessStage(1);
+      lv = makeEndlessLevel();
     } else {
       this.pendingLevel = this.pendingLevel || 1;
       lv = LEVELS[Math.max(0, Math.min(LEVELS.length - 1, this.pendingLevel - 1))];
@@ -194,11 +194,11 @@ const UI = {
     this.renderStartOptions();
     this.renderSkillPicker();
     const t = this.$('prep-title');
-    if (t) t.textContent = this.pendingMode === 'endless' ? '无尽模式 · 从第 1 层开始' : ('第 ' + lv.id + ' 关 · ' + lv.name);
+    if (t) t.textContent = this.pendingMode === 'endless' ? '无尽模式' : ('第 ' + lv.id + ' 关 · ' + lv.name);
     const d = this.$('prep-goal');
     if (d) {
       d.textContent = this.pendingMode === 'endless'
-        ? '无限层数挑战：每层目标人数递增、敌军更多更强、棋盘逐层扩大，看你能撑到第几层'
+        ? ('没有「层」也没有终点：人数只增不减，每满 ' + lv.goal.step + ' 人达成一个里程碑并弹出三选一奖励，选完接着打，直到被打光')
         : (lv.goal.type === 'reach'
           ? '过关目标：军团达到 ' + lv.goal.val + ' 人'
           : '过关目标：消灭全部 ' + lv.enemies.length + ' 支敌军');
@@ -206,7 +206,7 @@ const UI = {
     const tip = this.$('prep-tip');
     if (tip) {
       tip.textContent = this.pendingMode === 'endless'
-        ? ('第 1 层：目标 ' + lv.goal.val + ' 人，敌军 ' + lv.enemies.length + ' 支。无尽模式下奖励会一直累积，能走多远看你自己。')
+        ? ('开局 ' + (Save.data._prepCount || 3) + ' 人起步，敌军会随你的规模持续变强。你的纪录 = 单局最高人数。')
         : (lv.tip || '');
     }
     this.updateContinueBtn();
@@ -277,8 +277,8 @@ const UI = {
     this.run = {
       mode: mode,
       levelIndex: mode === 'campaign' ? LEVELS.indexOf(lv) : 0,
-      stage: 1,
-      startLevelId: mode === 'campaign' ? lv.id : 'E1',
+      milestones: 0,
+      startLevelId: mode === 'campaign' ? lv.id : 'E',
       skillId: Save.data._prepSkillId || 'rush',
       startCount: Save.data._prepCount || 3,
       buffs: {},
@@ -295,8 +295,9 @@ const UI = {
     if (!this.run) return;
     let level, idx;
     if (this.run.mode === 'endless') {
-      level = makeEndlessStage(this.run.stage || 1);
+      level = makeEndlessLevel();
       idx = -1;
+      this.run.milestones = 0;
     } else {
       idx = Math.min(this.run.levelIndex, LEVELS.length - 1);
       level = LEVELS[idx];
@@ -306,7 +307,7 @@ const UI = {
     this.show('screen-game');
     this.$('pause-overlay').classList.remove('active');
     this.$('hud-level').textContent = this.run.mode === 'endless'
-      ? ('无尽模式 · 第 ' + level.stage + ' 层')
+      ? '无尽模式'
       : ('第 ' + level.id + ' 关 · ' + level.name);
     const skin = SKINS.find(s => s.id === Save.data.skinSelected) || SKINS[0];
     this.$('skill-badge').textContent = (SKILLS[this.run.skillId] || SKILLS.rush).badge;
@@ -322,8 +323,12 @@ const UI = {
 
     if (this.game) { this.game.destroy(); this.game = null; }
 
+    // 暂停面板按钮文案：无尽模式没有「关」，只有「重开一局」
+    const rb = this.$('btn-restart');
+    if (rb) rb.textContent = this.run.mode === 'endless' ? '重开一局' : '重打本关';
+
     // 新手引导提示（文案随设备与操作方式变化）
-    const isFirstStage = (this.run.mode === 'endless') ? (level.stage === 1) : (level.id === 1);
+    const isFirstStage = this.run.mode === 'endless' ? true : (level.id === 1);
     const hint = this.$('hint-overlay');
     if (hint) {
       hint.innerHTML = this.hintText();
@@ -346,6 +351,7 @@ const UI = {
           hooks: {
             onHud(d) { self.onHud(d); },
             onWin(r) { self.onWin(r); },
+            onMilestone(r) { self.onMilestone(r); },
             onLose(r) { self.onLose(r); },
             onInput() {
               SFX.init(); SFX.resume();
@@ -447,28 +453,6 @@ const UI = {
     run.coinsEarned += res.coin;
     const id = res.levelId;
 
-    /* ---- 无尽模式 ---- */
-    if (res.endless || run.mode === 'endless') {
-      const prevBest = Save.data.stats.endlessBest || 0;
-      if (res.stage > prevBest) Save.data.stats.endlessBest = res.stage;
-      Save.data.stats.wins++;
-      if (res.flawless) Save.data.stats.flawless++;
-      if (res.comeback) Save.data.stats.comeback++;
-      Save.addCoins(res.coin);
-      save();
-      this.refreshCoins();
-      const newAch = this.checkAchievements();
-
-      this.$('reward-stars').innerHTML = '<span class="stage-badge">第 ' + res.stage + ' 层</span>';
-      this.$('reward-title').textContent = '无尽第 ' + res.stage + ' 层通过！';
-      this.$('reward-sub').textContent = '用时 ' + fmtTime(res.time) + ' · 吞噬 ' + res.eaten +
-        ' 个敌人 · 终局 ' + res.count + ' 人' + (res.stage > prevBest ? ' · 新纪录！' : '');
-      this.$('reward-coin').textContent = '+' + res.coin;
-      this.renderRewards(newAch);
-      this.show('screen-reward');
-      return;
-    }
-
     /* ---- 关卡推进模式 ---- */
     Save.data.stars[id] = Math.max(Save.data.stars[id] || 0, res.stars);
     if (Save.data.unlockedLevels < id + 1) Save.data.unlockedLevels = Math.min(id + 1, LEVELS.length);
@@ -491,18 +475,42 @@ const UI = {
     this.show('screen-reward');
   },
 
+  /* ---- 无尽模式：里程碑达成（不结束对局，只暂停去选奖励） ---- */
+  onMilestone(res) {
+    const run = this.run;
+    run.coinsEarned += res.coin;
+    run.milestones = res.milestone;
+
+    const prevBest = Save.data.stats.endlessBest || 0;
+    if (res.peak > prevBest) Save.data.stats.endlessBest = res.peak;
+    Save.addCoins(res.coin);
+    save();
+    this.refreshCoins();
+    const newAch = this.checkAchievements();
+
+    this.$('reward-stars').innerHTML = '<span class="stage-badge">' + res.threshold + ' 人</span>';
+    this.$('reward-title').textContent = '里程碑达成：' + res.threshold + ' 人！';
+    this.$('reward-sub').textContent = '用时 ' + fmtTime(res.time) + ' · 第 ' + res.milestone +
+      ' 次奖励 · 当前 ' + res.count + ' 人' + (res.peak > prevBest ? ' · 新纪录！' : '');
+    this.$('reward-coin').textContent = '+' + res.coin;
+    this.renderRewards(newAch, { endless: true });
+    this.show('screen-reward');
+  },
+
   onLose(res) {
     if (this.game) { this.game.destroy(); this.game = null; }
     const prevBest = Save.data.stats.endlessBest || 0;
+    const endless = res.endless || (this.run && this.run.mode === 'endless');
+    if (endless && (res.peak || 0) > prevBest) Save.data.stats.endlessBest = res.peak;
     Save.addCoins(res.coin);
     save();
     this.refreshCoins();
     this.checkAchievements();
-    const endless = res.endless || (this.run && this.run.mode === 'endless');
     this.$('lose-title').textContent = '挑战失败';
     this.$('lose-sub').textContent = (res.reason || '军团被吞噬殆尽') +
       (endless
-        ? (' · 无尽模式 第 ' + (res.stage || 1) + ' 层 · 存活 ' + fmtTime(res.time) + ' · 最高纪录 第 ' + Math.max(prevBest, res.stage || 0) + ' 层')
+        ? (' · 无尽模式 · 存活 ' + fmtTime(res.time) + ' · 本局峰值 ' + (res.peak || 0) +
+           ' 人 · 最高纪录 ' + Math.max(prevBest, res.peak || 0) + ' 人')
         : (' · 第 ' + res.levelId + ' 关 · 存活 ' + fmtTime(res.time)));
     this.$('lose-coin').textContent = '+' + res.coin + '（安慰奖）';
     this.show('screen-lose');
@@ -515,10 +523,12 @@ const UI = {
   },
 
   /* ---------------- 三选一奖励 ---------------- */
-  renderRewards(newAch) {
+  renderRewards(newAch, opts) {
+    const endless = !!(opts && opts.endless) ||
+      !!(this.run && this.run.mode === 'endless');
     const wrap = this.$('reward-cards');
     wrap.innerHTML = '';
-    const cards = this.rollRewards();
+    const cards = this.rollRewards({ endless: endless });
     this.chosen = false;
     cards.forEach(card => {
       const el = document.createElement('button');
@@ -544,7 +554,7 @@ const UI = {
       wrap.appendChild(el);
     });
     const nextBtn = this.$('btn-reward-next');
-    nextBtn.textContent = (this.run && this.run.mode === 'endless') ? '进入下一层' : '进入下一关';
+    nextBtn.textContent = endless ? '继续无尽挑战' : '进入下一关';
     nextBtn.classList.remove('show');
 
     if (newAch && newAch.length) {
@@ -552,12 +562,13 @@ const UI = {
     }
   },
 
-  rollRewards() {
+  rollRewards(opts) {
     const run = this.run;
+    const endless = !!(opts && opts.endless) || run.mode === 'endless';
     const pool = [];
 
-    // 金币（随进度递增：主线按关卡序号，无尽按层数）
-    const progress = run.mode === 'endless' ? (run.stage || 1) : (run.levelIndex + 1);
+    // 金币（随进度递增：主线按关卡序号，无尽按已过里程碑数）
+    const progress = endless ? ((run.milestones || 0) + 1) : (run.levelIndex + 1);
     const coinAmt = 60 + Math.round(Math.random() * 40) + progress * 8;
     pool.push({
       w: 30, kind: '货币', icon: '金', color: '#ffd93d',
@@ -566,20 +577,22 @@ const UI = {
       apply: () => { Save.addCoins(coinAmt); run.coinsEarned += coinAmt; },
     });
 
-    // 技能解锁 / 升级
+    // 技能解锁 / 升级（无尽模式把权重调高：里程碑的核心就是「选一个技能」）
+    const wUnlock = endless ? 40 : 24;
+    const wUpgrade = endless ? 34 : 20;
     SKILL_LIST.forEach(id => {
       const sk = SKILLS[id];
       const lv = Save.data.skills[id] || 0;
       if (lv === 0) {
         pool.push({
-          w: 24, kind: '技能解锁', icon: sk.badge, color: sk.color,
+          w: wUnlock, kind: '技能解锁', icon: sk.badge, color: sk.color,
           title: '解锁 · ' + sk.name,
           desc: sk.levels[0].desc + '（永久解锁）',
           apply: () => { Save.unlockSkill(id); },
         });
       } else if (lv < 3) {
         pool.push({
-          w: 20, kind: '技能升级', icon: sk.badge, color: sk.color,
+          w: wUpgrade, kind: '技能升级', icon: sk.badge, color: sk.color,
           title: sk.name + ' → Lv.' + (lv + 1),
           desc: sk.levels[lv].desc + '（永久强化）',
           apply: () => { Save.unlockSkill(id); },
@@ -599,17 +612,19 @@ const UI = {
       });
     });
 
-    // 开局人数解锁
-    START_OPTIONS.forEach(o => {
-      if (Save.data.startOptions.indexOf(o.count) >= 0) return;
-      if (o.count === 3) return;
-      pool.push({
-        w: 12, kind: '永久奖励', icon: '兵', color: '#4dd2ff',
-        title: '解锁开局 ' + o.count + ' 人',
-        desc: '以后每次出征都可以选择 ' + o.count + ' 人开局',
-        apply: () => { Save.data.startOptions.push(o.count); Save.data.startOptions.sort((a, b) => a - b); },
+    // 开局人数解锁（无尽模式中途用不上，不参与）
+    if (!endless) {
+      START_OPTIONS.forEach(o => {
+        if (Save.data.startOptions.indexOf(o.count) >= 0) return;
+        if (o.count === 3) return;
+        pool.push({
+          w: 12, kind: '永久奖励', icon: '兵', color: '#4dd2ff',
+          title: '解锁开局 ' + o.count + ' 人',
+          desc: '以后每次出征都可以选择 ' + o.count + ' 人开局',
+          apply: () => { Save.data.startOptions.push(o.count); Save.data.startOptions.sort((a, b) => a - b); },
+        });
       });
-    });
+    }
 
     // 加权随机取 3 张（不重复）
     const picked = [];
@@ -626,13 +641,18 @@ const UI = {
 
   nextLevel() {
     if (!this.run) return;
-    if (this.run.mode === 'endless') {
-      this.run.stage = (this.run.stage || 1) + 1;      // 无尽：层数无限递增
-    } else {
-      this.run.levelIndex++;
-      if (this.run.levelIndex >= LEVELS.length) this.run.levelIndex = LEVELS.length - 1;
-    }
     save();
+    // 无尽模式：不换关不重置人数，直接回到同一场对局继续打
+    if (this.run.mode === 'endless') {
+      if (this.game) {
+        this.game.resumeFromMilestone();
+        this.show('screen-game');
+        this.game.resize();
+      }
+      return;
+    }
+    this.run.levelIndex++;
+    if (this.run.levelIndex >= LEVELS.length) this.run.levelIndex = LEVELS.length - 1;
     this.launchLevel();
   },
 

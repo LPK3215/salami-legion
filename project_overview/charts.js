@@ -100,10 +100,10 @@
     var light = document.documentElement.getAttribute('data-theme') === 'light';
     /* 网格线颜色必须跟主题走：浅色底上用淡蓝白几乎看不见 */
     var line = light ? 'rgba(18,35,63,.12)' : 'rgba(160,190,255,.16)';
-    var gold = css('--gold', '#ffd93d');
+    var gold = light ? '#c98a00' : css('--gold', '#ffd93d');
     var blue = css('--blue', '#3d9bff');
     var red = css('--red', '#ff5b6e');
-    var green = css('--green', '#2ee6a8');
+    var green = light ? '#0f9d6b' : css('--green', '#2ee6a8');
     var purple = css('--purple', '#a66bff');
 
     window.Chart.defaults.color = dim;

@@ -26,7 +26,7 @@
 ├── index.html              所有界面（9 个 screen 区块 + HUD）
 ├── css/style.css           全部样式
 ├── js/
-│   ├── config.js           配置与数据：CFG / 关卡 / 技能 / 增益 / 皮肤 / 成就 / 无尽生成器
+│   ├── config.js           配置与数据：CFG / 关卡 / 技能 / 增益 / 皮肤 / 成就 / 无尽规则
 │   ├── save.js             存档读写（localStorage）
 │   ├── audio.js            音效合成（振荡器）
 │   ├── engine.js           核心引擎：Game 类、军团、战斗、AI、渲染
@@ -256,19 +256,44 @@ UI（准备页卡片、HUD 按钮）会自动跟着 `SKILL_LIST` 渲染，不用
 
 ---
 
-## 5. 无尽模式的实现
+## 5. 无尽模式的实现（没有「层」，一场打到底）
 
-- 生成器：`js/config.js` 的 `makeEndlessStage(n)`，纯函数，输入层数输出一个关卡对象
-  （结构与主线关卡完全一致，额外带 `endless: true`、`stage: n`、`world: {w, h}`）。
-- `Game` 接受 `world` 参数，**内部所有地图边界都读 `this.world`**（不再直接读 `CFG.world`），
-  所以无尽模式可以逐层扩大棋盘。
-- `ui.js` 中 `run.mode` 区分模式：
-  - `run.mode === 'campaign'` → `LEVELS[levelIndex]`
-  - `run.mode === 'endless'`  → `makeEndlessStage(run.stage)`
-- `nextLevel()` 在无尽模式下把 `run.stage++`，主线模式下 `run.levelIndex++`。
-- 无尽模式不写星级，而是更新 `Save.data.stats.endlessBest`。
+无尽模式的关卡对象**只有一个**，由 `js/config.js` 的 `makeEndlessLevel()` 生成
+（结构与主线关卡一致，额外带 `endless: true`、`goal: { type: 'endless', step: 50 }`，
+外加随规模变化的 `world`）。
 
-要调整无尽曲线，只改 `makeEndlessStage()` 里的公式即可（详见 [02-modes.md](02-modes.md#2-模式二无尽挑战无限层数)）。
+### 里程碑 = 暂停，不是过关
+
+- 引擎里多了一个状态：`status = 'playing' | 'paused' | 'milestone' | 'over'`。
+  `milestone` 期间 `update()` 直接返回，**对局冻结但 `Game` 实例继续存活**。
+- `checkGoal()` 对 `goal.type === 'endless'` 只做一件事：
+  人数 `>= this.nextMilestone` 时调用 `reachMilestone()`（不再有 `win()`）。
+- `reachMilestone()`：`milestones++`、`nextMilestone += step`、`releaseInput()`、
+  `expandEndlessWorld()`、`buildResult(true)` 并回调 `hooks.onMilestone(res)`。
+- `resumeFromMilestone()`：重算 `this.buff = computeBuffs(run.buffs)`、恢复 `playing`、
+  重置 `lastT`。**这就是「人数不重置」的实现方式** ——
+  UI 侧 `nextLevel()` 在无尽模式下不新建 `Game`，而是调用这个方法回到同一场对局。
+- 里程碑奖励走的是同一套 `rollRewards()`，只是传 `{ endless: true }`：
+  技能卡权重调高、去掉「解锁开局人数」卡。
+
+### 难度递增（不按层，按人数 + 时间）
+
+- `endlessRamp()` 每秒执行一次：
+  - 敌军支数对齐 `min(2 + ⌊峰值人数/45⌋, 7)`，阵亡后自动补位（`spawnEndlessEnemy()`）；
+  - 每支敌军按 `endlessEnemyTarget(pop, time, i, n)` 增援到目标人数（离玩家 520px 内不刷，避免凭空冒兵）；
+  - 统一刷新 `ai.ag / ai.react / ai.sp`（`endlessEnemyStats(pop)`），并同步 `this.aiCap`；
+  - 中立小人目标量随规模上涨。
+- `expandEndlessWorld()` 在每个里程碑扩棋盘（只补新区域的装饰物；
+  中立小人由常规的 `spawnNeutral` 缺额补充逻辑自动铺到新区域）。
+- `Game` 内部所有地图边界都读 `this.world`，所以运行中改 `world.w/h` 是安全的。
+
+### 记录
+
+无尽模式不写星级，只更新 `Save.data.stats.endlessBest` = **单局最高人数**。
+
+要调整无尽曲线，只改 `js/config.js` 里的 `ENDLESS` 常量与三个纯函数
+（`endlessWorldFor` / `endlessEnemyTarget` / `endlessEnemyStats`）即可
+（详见 [02-modes.md](02-modes.md#2-模式二无尽挑战没有层一场打到底)）。
 
 ---
 
@@ -287,15 +312,17 @@ npm test
 3. 打桩 Canvas（jsdom 没有绘图能力）
 4. 模拟真实用户点击：遍历主菜单、关卡选择、商店、成就、说明、出征准备
 5. 进入对局后验证：滑动控制、收编中立小人、**逐个吞噬（正向与反向）**、
-   技能释放、暂停/继续、通关结算、三选一、关卡推进、**无尽模式逐层扩大**、失败流程、商店购买、存档持久化
+   技能释放、暂停/继续、通关结算、三选一、关卡推进、
+   **无尽模式里程碑（50 人暂停三选一 → 同一场对局继续、人数不重置、棋盘扩大）**、
+   失败流程、商店购买、存档持久化
 6. 捕获任何 jsdom 运行期 JS 错误，一旦出现即判定失败
 
 当前规模（由 `scripts/visualization/lib_load_facts.mjs` 统计，可用 `npm run overview:data` 重算）：
-**17 段流程 · 104 处断言调用点 · 38 项界面校验**。全部通过时最后一行输出 `全部通过 ✓`。
+**17 段流程 · 113 处断言调用点 · 39 项界面校验**。全部通过时最后一行输出 `全部通过 ✓`。
 
-> 已知抖动：「应为多帧逐个消耗，而非一次性吞并」一例依赖帧推进的墙钟时长，高负载下会报
-> `递减次数=1`（实测主干本身也有约 2/6 概率）。重跑两三次即可区分抖动与真回归，
-> 详见 [../CONTRIBUTING.md](../CONTRIBUTING.md) 第 6 节。
+> 依赖时间的用例（逐个吞噬、反向吞噬、收编中立小人、无尽里程碑）统一走
+> `ticks(game, n, dt)` **固定步长推进**，不再依赖 `requestAnimationFrame` 的墙钟步长，
+> 因此不会随机器负载抖动。详见 [../CONTRIBUTING.md](../CONTRIBUTING.md) 第 6 节。
 
 ### 引擎压力/平衡模拟
 

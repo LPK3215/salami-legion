@@ -396,7 +396,7 @@
   /* ---------- 10. 架构图 hover 说明 ---------- */
   var TIPS = {
     ui: '<b>表现层</b>：所有界面在同一张 <code>index.html</code> 内以 <code>screen</code> 区块切换，样式集中在 <code>css/style.css</code>，脚本按 config → save → audio → engine → ui 的顺序加载，<b>顺序不可调整</b>。',
-    cfg: '<b>数据真源 <code>js/config.js</code></b>：关卡、技能、增益、皮肤、成就、开局档位与无尽生成器全在这里。<b>加内容优先改这个文件</b>，UI 会自动跟着渲染。',
+    cfg: '<b>数据真源 <code>js/config.js</code></b>：关卡、技能、增益、皮肤、成就、开局档位与无尽规则全在这里。<b>加内容优先改这个文件</b>，UI 会自动跟着渲染。',
     engine: '<b>引擎层 <code>js/engine.js</code></b>：一个 IIFE，只暴露 <code>MiniGame</code> 与 <code>GameUtils</code>。含逐个吞噬的 <code>updateCombat()</code>、按军团对维护的 <code>pairTimers</code>、AI 决策、黄金角螺旋编队、空间网格与 Canvas 渲染。',
     mods: '<b>外围模块</b>：<code>ui.js</code> 负责界面流转并接收引擎 hooks；<code>save.js</code> 做存档 merge/persist/reset，老存档字段会自动补全；<code>audio.js</code> 用振荡器合成音效，无音频文件。',
     api: '<b>浏览器能力</b>：Canvas 2D（精灵缓存 + 视口裁剪 + 小地图）、WebAudio（首次交互解锁上下文）、localStorage（键名与产品名解耦，<b>改名不动键</b>）。',

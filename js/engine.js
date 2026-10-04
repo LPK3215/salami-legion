@@ -208,6 +208,13 @@
       this.unitGrid = new Map();
       this.cell = 46;
 
+      /* 无尽模式：没有「层」，靠里程碑（每满 step 人弹一次三选一）推进 */
+      this.endless = !!(this.level && this.level.endless);
+      this.endlessAcc = 0;
+      this.milestones = 0;
+      this.nextMilestone = (this.endless && this.level.goal.type === 'endless')
+        ? this.level.goal.step : 0;
+
       this.legions = [];
       this.neutrals = [];
       this.player = null;
@@ -282,7 +289,9 @@
 
       // AI 人数上限：避免敌军无限滚雪球，保证关卡可完成
       const maxStart = Math.max.apply(null, L.enemies.map(e => e.c)) || 10;
-      this.aiCap = Math.round(maxStart * 2.0 + 18);
+      this.aiCap = this.endless
+        ? Math.round(Math.max(10, startCount) * ENDLESS.aiCapRatio + 20)
+        : Math.round(maxStart * 2.0 + 18);
       for (let i = 0; i < this.neutralTarget; i++) this.spawnNeutral(260);
 
       // 敌军团：配色避开玩家颜色
@@ -675,6 +684,11 @@
           const rate = Math.min(6, deficit / 18 + 0.6) * (1 + this.buff.neutral);
           for (let i = 0; i < Math.ceil(rate); i++) this.spawnNeutral(300);
         }
+      }
+
+      if (this.endless) {
+        this.endlessAcc += dt;
+        if (this.endlessAcc >= 1) { this.endlessAcc -= 1; this.endlessRamp(); }
       }
 
       this.hudAcc += dt;
@@ -1184,6 +1198,11 @@
       const g = this.level.goal;
       const p = this.player;
       if (!p.alive) return;
+      if (g.type === 'endless') {
+        // 无尽模式没有终点：每满一个里程碑就暂停去选奖励，选完接着打
+        if (p.count >= this.nextMilestone) this.reachMilestone();
+        return;
+      }
       if (g.type === 'reach') {
         if (p.count >= g.val) this.win();
       } else {
@@ -1209,23 +1228,191 @@
       if (this.hooks.onLose) this.hooks.onLose(res);
     }
 
+    /* ===== 无尽模式：里程碑（不停机推进的关键） ===== */
+    reachMilestone() {
+      if (this.status !== 'playing') return;
+      const step = this.level.goal.step || ENDLESS.step;
+      const reached = this.nextMilestone;
+      this.milestones++;
+      this.nextMilestone = reached + step;
+      this.status = 'milestone';            // 冻结对局，但游戏实例继续存活
+
+      this.releaseInput();                  // 松手，避免回到画面后还朝旧方向狂奔
+      this.player.target.x = this.player.cx;   // 原地待命，等选完奖励再出发
+      this.player.target.y = this.player.cy;
+      this.expandEndlessWorld();
+      this.player.skillCd = 0;              // 里程碑奖励一次立即开技能的机会
+      SFX.win();
+
+      const res = this.buildResult(true);
+      res.milestone = this.milestones;
+      res.threshold = reached;
+      this.pushHud();
+      if (this.hooks.onMilestone) this.hooks.onMilestone(res);
+    }
+
+    /* 三选一结束后回到同一场对局：重算增益、接着打 */
+    resumeFromMilestone() {
+      if (this.status !== 'milestone') return;
+      this.buff = this.computeBuffs(this.run.buffs || {});
+      this.aiCap = Math.round(Math.max(10, this.player.count) * ENDLESS.aiCapRatio + 20);
+      this.status = 'playing';
+      this.lastT = performance.now();
+      this.pushHud();
+    }
+
+    /* 无尽难度递增：场上敌军数量与规模持续追着我方人数上涨 */
+    endlessRamp() {
+      if (this.status !== 'playing' || !this.player.alive) return;
+      const p = this.player;
+      const pop = Math.max(10, this.stats.peak, p.count);
+
+      this.aiCap = Math.round(pop * ENDLESS.aiCapRatio + 20);
+
+      // 清理早已阵亡的军团，避免配对循环里数组无限膨胀
+      if (this.legions.length > 12) {
+        this.legions = this.legions.filter(L => L.alive || L.isPlayer);
+      }
+
+      // 敌军支数随规模上涨
+      const want = Math.min(ENDLESS.maxEnemies, 2 + Math.floor(pop / 45));
+      let alive = this.legions.filter(L => L.alive && !L.isPlayer);
+      for (let i = alive.length; i < want; i++) this.spawnEndlessEnemy(pop);
+
+      // 逐支增援到目标人数（离我方太近时不刷，避免凭空冒兵）
+      alive = this.legions.filter(L => L.alive && !L.isPlayer);
+      const st = endlessEnemyStats(pop);
+      alive.forEach((A, i) => {
+        if (A.ai) {
+          A.ai.ag = st.ag;
+          A.ai.react = st.react;
+          A.ai.sp = st.sp;
+        }
+        const target = endlessEnemyTarget(pop, this.time, i, alive.length);
+        if (A.count >= target) return;
+        const d2p = dist2(A.cx, A.cy, p.cx, p.cy);
+        if (d2p < 520 * 520) return;
+        const add = Math.min(8, Math.max(1, Math.ceil((target - A.count) * 0.18)));
+        for (let k = 0; k < add; k++) {
+          const a = Math.random() * TAU, r = rnd(Math.max(4, A.radius * 0.4), A.radius * 0.9 + 12);
+          const u = A.addUnit(A.cx + Math.cos(a) * r, A.cy + Math.sin(a) * r);
+          if (u) u.flash = 0.5;
+        }
+        if (d2p < 1400 * 1400) this.burst(A.cx, A.cy, A.body, 6, 90);
+      });
+
+      // 中立小人目标量随规模上涨，保证场上一直有粮可吃
+      this.neutralTarget = Math.min(
+        CFG.neutralMax,
+        Math.round(160 + pop * 1.1 * (1 + this.buff.neutral))
+      );
+    }
+
+    spawnEndlessEnemy(pop) {
+      const p = this.player;
+      const W = this.world.w, H = this.world.h;
+      const palettes = ENEMY_PALETTES.filter(pl => colorDistance(pl.body, p.body) > 150);
+      const pool = palettes.length ? palettes : ENEMY_PALETTES;
+      const used = this.legions.filter(L => L.alive && !L.isPlayer).map(L => L.body);
+      let pal = pool[(Math.random() * pool.length) | 0];
+      for (let g = 0; g < 24 && used.indexOf(pal.body) >= 0; g++) {
+        pal = pool[(Math.random() * pool.length) | 0];
+      }
+
+      const idx = used.length;
+      let x = p.cx, y = p.cy;
+      for (let t = 0; t < 24; t++) {
+        const ang = Math.random() * TAU, rad = rnd(900, 1600);
+        x = clamp(p.cx + Math.cos(ang) * rad, 160, W - 160);
+        y = clamp(p.cy + Math.sin(ang) * rad, 160, H - 160);
+        if (dist2(x, y, p.cx, p.cy) > 800 * 800) break;
+      }
+
+      const st = endlessEnemyStats(pop);
+      const A = new Legion({
+        name: pal.name, body: pal.body, style: 'plain', x, y,
+        ai: { c: 0, sp: st.sp, ag: st.ag, react: st.react, t: Math.random() * 0.4 },
+      });
+      A.target = { x, y };
+      this.legions.push(A);
+
+      const target = endlessEnemyTarget(pop, this.time, idx, Math.max(1, idx + 1));
+      this.spawnUnitsCircle(A, Math.max(2, Math.round(target * 0.7)), x, y, 60);
+      this.floatText(pal.name + ' 来袭！', x, y - 46, pal.body, 1.4);
+      return A;
+    }
+
+    /* 棋盘随里程碑扩大（只补新区域，已放置内容不动） */
+    expandEndlessWorld() {
+      if (!this.endless) return;
+      const t = endlessWorldFor(this.player.count);
+      if (t.w <= this.world.w && t.h <= this.world.h) return;
+      const oldW = this.world.w, oldH = this.world.h;
+      this.world.w = Math.max(oldW, t.w);
+      this.world.h = Math.max(oldH, t.h);
+
+      const decoColors = ['#2a7a4f', '#2f8a58', '#357a63', '#3a6f7a', '#4a6b8a'];
+      const need = Math.max(12, Math.round((this.world.w * this.world.h - oldW * oldH) / 73000));
+      let placed = 0;
+      for (let t2 = 0; t2 < need * 6 && placed < need; t2++) {
+        const x = rnd(60, this.world.w - 60), y = rnd(60, this.world.h - 60);
+        if (x < oldW && y < oldH) continue;
+        this.decor.push({
+          x, y, r: rnd(16, 42),
+          c: decoColors[(Math.random() * decoColors.length) | 0],
+          s: Math.random() * TAU,
+        });
+        placed++;
+      }
+      this.floatText('战场扩大！', this.player.cx, this.player.cy - 70, '#4dd2ff', 1.6);
+    }
+
     buildResult(isWin) {
       const L = this.level;
+      const p = this.player;
+
+      if (L.endless) {
+        const step = (L.goal && L.goal.step) || ENDLESS.step;
+        const milestone = Math.max(0, this.milestones);
+        const base = L.coins || 20;
+        const coin = isWin
+          ? Math.round(base + milestone * 16 + Math.min(60, this.stats.eaten * 1.5))
+          : Math.round((base + this.stats.peak * 0.4) * 0.25);
+        return {
+          win: isWin,
+          endless: true,
+          levelId: L.id,
+          levelName: L.name,
+          milestone,
+          threshold: this.nextMilestone - step,
+          levelIndex: this.levelIndex,
+          stars: 0,
+          time: this.time,
+          coin,
+          count: p.count,
+          peak: this.stats.peak,
+          eaten: this.stats.eaten,
+          lost: this.stats.lost,
+          flawless: this.stats.flawless && this.stats.lost === 0,
+          comeback: this.stats.usedSkillLow && p.count > 0,
+          enemiesLeft: this.legions.filter(x => x.alive && !x.isPlayer).length,
+        };
+      }
+
       let stars = 0;
       if (isWin) {
         stars = 1;
         if (this.time <= L.par) stars = 2;
         if (this.time <= L.gold) stars = 3;
       }
-      const p = this.player;
       const base = L.coins || 20;
       const coin = isWin ? Math.round(base + stars * 12 + Math.min(60, this.stats.eaten * 1.5)) : Math.round(base * 0.25);
       return {
         win: isWin,
         levelId: L.id,
         levelName: L.name,
-        endless: !!L.endless,
-        stage: L.stage || 0,
+        endless: false,
+        stage: 0,
         levelIndex: this.levelIndex,
         stars,
         time: this.time,
@@ -1282,7 +1469,12 @@
       const L = this.level;
       const g = L.goal;
       let progress = 0, goalText = '';
-      if (g.type === 'reach') {
+      if (g.type === 'endless') {
+        const step = g.step || ENDLESS.step;
+        const prev = this.nextMilestone - step;
+        progress = clamp((p.count - prev) / step, 0, 1);
+        goalText = '下一里程碑：' + this.nextMilestone + ' 人（三选一）';
+      } else if (g.type === 'reach') {
         progress = clamp(p.count / g.val, 0, 1);
         goalText = '目标：军团达到 ' + g.val + ' 人';
       } else {
