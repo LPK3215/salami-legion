@@ -15,7 +15,7 @@
   <line x1="112" y1="100" x2="112" y2="164" stroke="#3d9bff" stroke-opacity=".25"/>
   <rect x="130" y="100" width="300" height="64" rx="9" fill="rgba(255,255,255,.05)" stroke="#3d9bff" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="280" y="129" text-anchor="middle" font-size="14" font-weight="700" fill="#3d9bff">index.html</text>
-  <text x="280" y="147" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">267 行 · 各屏 DOM 骨架</text>
+  <text x="280" y="147" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">269 行 · 各屏 DOM 骨架</text>
   <rect x="450" y="100" width="300" height="64" rx="9" fill="rgba(255,255,255,.05)" stroke="#3d9bff" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="600" y="129" text-anchor="middle" font-size="14" font-weight="700" fill="#3d9bff">css/style.css</text>
   <text x="600" y="147" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">564 行 · 样式/断点/主题色</text>
@@ -131,5 +131,5 @@
   <path d="M 365 715 L 375 715 L 370 724 Z" fill="#3d9bff" fill-opacity=".85"/>
   <line x1="870" y1="698" x2="870" y2="715" stroke="#3d9bff" stroke-width="2" stroke-opacity=".7"/>
   <path d="M 865 715 L 875 715 L 870 724 Z" fill="#3d9bff" fill-opacity=".85"/>
-<text x="30" y="810" font-size="11.5" fill="rgba(234,241,255,.62)">端到端测试 test/dom.test.js：871 行 · 18 段流程 · 156 条断言 · 44 项界面校验　|　版本 v1.0.0 · MIT · 生成于 2026-10-04（数字源自 js/config.js、package.json、css/style.css）</text>
+<text x="30" y="810" font-size="11.5" fill="rgba(234,241,255,.62)">端到端测试 test/dom.test.js：876 行 · 18 段流程 · 157 条断言 · 44 项界面校验　|　版本 v1.1.0 · MIT · 生成于 2026-10-04（数字源自 js/config.js、package.json、css/style.css）</text>
 </svg>

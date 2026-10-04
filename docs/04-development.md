@@ -398,6 +398,19 @@ npm start                      # 或 node server.js / PORT=9000 node server.js
 
 服务器特性：`0.0.0.0` 监听、`/healthz` 健康检查、正确 MIME、防目录穿越、缺失文件返回真实 404。
 
+### 线上（GitHub Pages）
+
+发布源：`main` 分支的**仓库根目录**（经典 legacy 模式，不用 Actions），`git push github main` 后约 1 分钟生效。
+
+> ⚠️ **静态资源必须带版本号。** `index.html` 与 `project_overview/index.html` 里的
+> `css/style.css` 与 5 个 `js/*.js` 都写成 `xxx?v=YYYYMMDD`。GitHub Pages 对静态资源给
+> `max-age=600` 的**强缓存**——改了 js/css 却没改 `?v=`，老访客会继续跑缓存里的旧脚本，
+> 表现为「代码明明改了，线上还是旧行为」，而且**普通刷新无效，只有 `Ctrl+Shift+R` 才看得到新代码**。
+>
+> 规则：**任何一次改动 `css/` 或 `js/`，都要把两个 html 里的 `?v=` 一起改成当天日期**
+> （同一天第二次改就加字母：`20261004a`、`20261004b`）。本地 `server.js` 不受影响：
+> 它用 `url.parse().pathname` 取路径（忽略查询串），响应头也带 `no-store`。
+
 ### CNB 云原生开发环境
 
 1. `.cnb.yml` 声明了 `vscode` 事件，并在 `env.CNB_WELCOME_CMD` 里执行 `bash /workspace/scripts/start.sh`

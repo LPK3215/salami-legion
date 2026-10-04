@@ -1,13 +1,13 @@
 /* 本文件由 scripts/visualization/generate_overview_facts.mjs 自动生成，请勿手工编辑。
  *    重新生成：node scripts/visualization/generate_overview_facts.mjs  或  npm run overview:data
- *    生成时间：2026-10-04 15:17Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
+ *    生成时间：2026-10-04 15:32Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
  *    js/save.js、package.json、css/style.css、index.html、test/dom.test.js、docs/04-development.md）。 */
 window.OVERVIEW_FACTS = {
  "meta": {
   "project": "蚕食军团",
   "projectEn": "Salami Legion",
   "name": "salami-legion",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "description": "蚕食军团（Salami Legion）—— 逐个单位吞噬的休闲军团对战游戏（纯前端 Canvas，零运行时依赖）",
   "author": "LPK3215 <17538703215@163.com>",
@@ -19,7 +19,7 @@ window.OVERVIEW_FACTS = {
   "runtimeDeps": 0,
   "devDeps": 1,
   "saveKey": "mini_legion_save_v1",
-  "generatedAt": "2026-10-04 15:17Z",
+  "generatedAt": "2026-10-04 15:32Z",
   "generator": "scripts/visualization/generate_overview_facts.mjs"
  },
  "content": {
@@ -57,7 +57,7 @@ window.OVERVIEW_FACTS = {
   "gridCell": 46
  },
  "lines": {
-  "index.html": 267,
+  "index.html": 269,
   "css/style.css": 564,
   "js/config.js": 302,
   "js/engine.js": 2054,
@@ -65,20 +65,20 @@ window.OVERVIEW_FACTS = {
   "js/save.js": 98,
   "js/audio.js": 53,
   "server.js": 126,
-  "test/dom.test.js": 871,
+  "test/dom.test.js": 881,
   "scripts/start.sh": 56
  },
  "test": {
   "sections": 18,
-  "asserts": 156,
+  "asserts": 157,
   "checks": 44,
-  "lines": 871
+  "lines": 881
  },
  "totals": {
   "jsLines": 3322,
   "cssLines": 564,
-  "htmlLines": 267,
-  "testLines": 871,
+  "htmlLines": 269,
+  "testLines": 881,
   "docFiles": 5,
   "screens": 9,
   "skinStyles": [
@@ -860,7 +860,7 @@ window.OVERVIEW_FACTS = {
   {
    "file": "docs/02-modes.md",
    "title": "游戏模式详解",
-   "quote": "这一篇专门解释「到底有几种玩法、每种怎么结束、有没有无尽模式、棋盘是不是都一样大」。"
+   "quote": "这一篇专门解释「到底有几种玩法、每种怎么结束、有没有无尽模式、地图是不是都一样大」。"
   },
   {
    "file": "docs/03-systems.md",
@@ -930,22 +930,22 @@ window.OVERVIEW_FACTS = {
      "name": "02-modes.md",
      "path": "docs/02-modes.md",
      "type": "file",
-     "bytes": 13121,
-     "lines": 218
+     "bytes": 13344,
+     "lines": 221
     },
     {
      "name": "03-systems.md",
      "path": "docs/03-systems.md",
      "type": "file",
-     "bytes": 7202,
-     "lines": 165
+     "bytes": 7858,
+     "lines": 173
     },
     {
      "name": "04-development.md",
      "path": "docs/04-development.md",
      "type": "file",
-     "bytes": 21080,
-     "lines": 439
+     "bytes": 22038,
+     "lines": 452
     },
     {
      "name": "05-controls-and-layout.md",
@@ -1049,8 +1049,8 @@ window.OVERVIEW_FACTS = {
      "name": "index.html",
      "path": "project_overview/index.html",
      "type": "file",
-     "bytes": 34604,
-     "lines": 555
+     "bytes": 35669,
+     "lines": 561
     },
     {
      "name": "script.js",
@@ -1133,8 +1133,8 @@ window.OVERVIEW_FACTS = {
      "name": "dom.test.js",
      "path": "test/dom.test.js",
      "type": "file",
-     "bytes": 48196,
-     "lines": 871
+     "bytes": 49186,
+     "lines": 881
     }
    ]
   },
@@ -1184,8 +1184,8 @@ window.OVERVIEW_FACTS = {
    "name": "CHANGELOG.md",
    "path": "CHANGELOG.md",
    "type": "file",
-   "bytes": 14821,
-   "lines": 177
+   "bytes": 18493,
+   "lines": 218
   },
   {
    "name": "CODE_OF_CONDUCT.md",
@@ -1198,8 +1198,8 @@ window.OVERVIEW_FACTS = {
    "name": "CONTRIBUTING.md",
    "path": "CONTRIBUTING.md",
    "type": "file",
-   "bytes": 11882,
-   "lines": 199
+   "bytes": 12631,
+   "lines": 206
   },
   {
    "name": "FAQ.md",
@@ -1212,8 +1212,8 @@ window.OVERVIEW_FACTS = {
    "name": "index.html",
    "path": "index.html",
    "type": "file",
-   "bytes": 11892,
-   "lines": 267
+   "bytes": 12154,
+   "lines": 269
   },
   {
    "name": "LICENSE",
@@ -1270,6 +1270,6 @@ window.OVERVIEW_FACTS = {
   "eatCore": "          this.contacts.push({ a: A, b: B, x: (A.cx + B.cx) / 2, y: (A.cy + B.cy) / 2, r: Math.min(ra, rb) });\n\n          if (A.count === B.count) { this.pairTimers.set(key, CFG.eat.interval * 0.6); continue; }\n\n          let t = this.pairTimers.get(key);\n          if (t === undefined) t = CFG.eat.interval;\n          t -= dt;\n          if (t > 0) { this.pairTimers.set(key, t); continue; }\n\n          const big = A.count > B.count ? A : B;\n          const small = A.count > B.count ? B : A;\n\n          // 坚壁：未被吞噬方免疫\n          if (small.isPlayer && this.player.hasFx('shield')) {",
   "newGame": "        self.game = new MiniGame({\n          canvas: self.$('game-canvas'),\n          minimap: self.$('minimap'),\n          level,\n          levelIndex: idx,\n          world: level.world,\n          run: self.run,\n          controlMode: Save.data.settings.controlMode || 'auto',\n          hooks: {\n            onHud(d) { self.onHud(d); },",
   "levelDef": "  { id: 4,  name: '人潮涌动', goal: { type: 'reach', val: 36 },  neutral: 175, par: 70,  gold: 48,\n    enemies: [{ c: 8,  sp: 0.90, ag: 0.45, react: 0.55 }, { c: 10, sp: 0.92, ag: 0.48, react: 0.52 }, { c: 12, sp: 0.94, ag: 0.50, react: 0.50 }], coins: 40,\n    tip: '开局技能是翻盘关键，善用它' },\n\n  { id: 5,  name: '四面楚歌', goal: { type: 'eliminate' },       neutral: 190, par: 100, gold: 68,",
-  "scriptOrder": "<script src=\"js/config.js\"></script>\n<script src=\"js/save.js\"></script>\n<script src=\"js/audio.js\"></script>\n<script src=\"js/engine.js\"></script>\n<script src=\"js/ui.js\"></script>"
+  "scriptOrder": null
  }
 };

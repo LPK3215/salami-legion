@@ -98,6 +98,13 @@ const SAVE_KEY = 'mini_legion_save_v1';
 10. **CDN 外链只允许出现在 `project_overview/` 这份文档页**（Google Fonts 与 Chart.js，均用 `https://` 协议）。
    游戏本体（`index.html` + `css/` + `js/`）**继续零外链零依赖**，且览页在 CDN 不可用时必须能降级阅读
    （现有做法：Chart.js 缺失时自动换成等价表格）。
+11. **改了 `css/` 或 `js/`，必须同时把两个 html 里的 `?v=` 版本号改掉。**
+   `index.html` 与 `project_overview/index.html` 的资源引用写成 `css/style.css?v=YYYYMMDD`、
+   `js/engine.js?v=YYYYMMDD`。原因：GitHub Pages 对静态资源给 `max-age=600` 强缓存，
+   不换 URL 的话**老访客会继续跑缓存里的旧脚本**，表现为「代码改了、线上还是旧行为」，
+   而且普通刷新无效（只有硬刷新才看得到），排查起来极像"改动没生效"的灵异问题。
+   同一天第二次改就在末尾加字母（`20261004a`、`20261004b`）。`server.js` 本地开发不受影响
+   （取路径时用 `url.parse().pathname`，查询串被忽略，响应头带 `no-store`）。
 
 ---
 

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./style.css?v=20261004">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -229,7 +229,7 @@
                 <tr><td>中立小人上限 <code>neutralMax</code></td><td><b data-fact="mechanics.neutralMax"></b></td></tr>
                 <tr><td>空间网格边长 <code>this.cell</code></td><td><b data-fact="mechanics.gridCell"></b> px</td></tr>
                 <tr><td>收编判定半径 <code>CFG.pickup</code></td><td><b data-fact="mechanics.pickup"></b></td></tr>
-                <tr><td>地图尺寸 <code>CFG.world</code></td><td><b data-fact="mechanics.worldW"></b> × <b data-fact="mechanics.worldH"></b></td></tr>
+                <tr><td>地图尺寸 <code>CFG.world</code></td><td><b data-fact="mechanics.worldW"></b> × <b data-fact="mechanics.worldH"></b>（主线固定；无尽模式为以玩家为中心的动态战场，见下）</td></tr>
                 <tr><td>镜头缩放区间 <code>CFG.zoom</code></td><td><b data-fact="mechanics.zoom.min"></b> ~ <b data-fact="mechanics.zoom.max"></b></td></tr>
               </tbody>
             </table>
@@ -375,6 +375,9 @@ npm run overview:data      # 重新生成本页数据</pre><button class="copy">
         <p>GitHub Pages <b>经典模式（legacy）</b>，发布源是 <code>main</code> 分支的<b>仓库根目录</b>（不是 <code>docs/</code>）：
           <code>git push github main</code> 后自动构建发布，不需要 Actions，也不需要手动触发。
           根目录保留 <code>.nojekyll</code> 以禁用 Jekyll 处理。</p>
+        <p class="tiny dim">静态资源都带版本号（如 <code>js/engine.js?v=YYYYMMDD</code>）：Pages 对静态资源给
+          <code>max-age=600</code> 强缓存，因此改了 <code>js/</code> 或 <code>css/</code> 必须同时改 <code>?v=</code>，
+          否则老访客会继续跑缓存里的旧脚本 —— 普通刷新无效，只有硬刷新（<code>Ctrl+Shift+R</code>）才看得到新版本。</p>
         <p class="tiny dim">本览页在站点上的地址：<code>&lt;站点根&gt;/project_overview/</code>；页内所有资源均为相对路径，子路径下不会 404。</p>
       </div>
     </section>
@@ -393,7 +396,7 @@ npm run overview:data      # 重新生成本页数据</pre><button class="copy">
                 <tr><td><code>minimap</code></td><td>可选，小地图 canvas</td></tr>
                 <tr><td><code>level</code></td><td>关卡配置对象</td></tr>
                 <tr><td><code>levelIndex</code></td><td>关卡下标，无尽模式传 <code>-1</code></td></tr>
-                <tr><td><code>world</code></td><td>可选 <code>{w,h}</code>，不传用 <code>CFG.world</code></td></tr>
+                <tr><td><code>world</code></td><td>可选 <code>{w,h}</code>，不传用 <code>CFG.world</code>；原点由引擎管理（无尽模式每帧重算为动态战场）</td></tr>
                 <tr><td><code>run</code></td><td><code>{ mode, skillId, startCount, buffs, … }</code></td></tr>
                 <tr><td><code>controlMode</code></td><td><code>auto</code> / <code>joystick</code> / <code>follow</code></td></tr>
                 <tr><td><code>hooks</code></td><td>回调集合，见右表</td></tr>
@@ -443,7 +446,7 @@ npm run overview:data      # 重新生成本页数据</pre><button class="copy">
       <h2>测试与质量</h2>
       <div class="grid-3">
         <div class="card kpi"><b data-count="test.sections"></b><span>端到端流程段数</span><p class="tiny dim">从主菜单一路点到失败/结算/无尽</p></div>
-        <div class="card kpi"><b data-count="test.asserts"></b><span>断言调用点</span><p class="tiny dim">含正向与反向吞噬、摇杆、多指、存档</p></div>
+        <div class="card kpi"><b data-count="test.asserts"></b><span>断言调用点</span><p class="tiny dim">含正向与反向吞噬、摇杆、多指、存档、技能与增益实效</p></div>
         <div class="card kpi"><b data-count="test.checks"></b><span>界面校验项</span><p class="tiny dim">每项打印一条 ✓ 结果</p></div>
       </div>
       <div class="card wide">
@@ -452,18 +455,21 @@ npm run overview:data      # 重新生成本页数据</pre><button class="copy">
           <li>用 jsdom 加载<b>真实 <code>index.html</code></b>，按 <code>&lt;script&gt;</code> 顺序执行全部游戏脚本；</li>
           <li>给 Canvas 打桩（jsdom 无绘图能力），其余逻辑全部真跑；</li>
           <li>模拟真实用户点击，遍历主菜单 / 关卡选择 / 商店 / 成就 / 说明 / 出征准备；</li>
-          <li>进入对局后验证：滑动控制、收编中立小人、<b>逐个吞噬（正向与反向）</b>、技能、暂停继续、通关结算与三选一、关卡推进、<b>无尽里程碑（暂停三选一后原场继续、人数不重置、棋盘扩大）</b>、失败流程、商店购买、存档持久化；</li>
+          <li>进入对局后验证：滑动控制、收编中立小人、<b>逐个吞噬（正向与反向）</b>、技能、暂停继续、通关结算与三选一、关卡推进、<b>无尽模式（动态战场随玩家平移与规模变大、对玩家零边界限制、渲染不画任何边界/场地圈、50 人里程碑暂停三选一后原场继续、人数不重置、全灭结算报峰值人数）</b>、失败流程、商店购买、存档持久化；</li>
           <li>与时间强相关的用例走 <code>ticks(game, n, dt)</code> 固定步长推进，不依赖 rAF 的墙钟步长，结果可复现；</li>
           <li><b>技能/增益「描述 = 实效」校验</b>：构造受控对局逐条量测引擎实际值（7 条增益的数值、6 个技能的范围与秒数），
           防止 <code>desc</code> 变成假承诺；同时断言关卡模式渲染 1 条边界、无尽模式渲染 0 条边界与 0 个场地圈。</li>
           <li>捕获任何运行期 JS 错误，出现即判定失败。</li>
         </ol>
         <div class="warn">
-          <b>如实记录：存在一个已知抖动用例。</b>
-          「应为多帧逐个消耗，而非一次性吞并」依赖真实帧推进的墙钟时长 —— 当机器负载高、一批帧耗时超过
-          <em data-fact="mechanics.eatInterval"></em> 秒时，三次转移会落进同一个快照批次，断言就报 <code>递减次数=1</code>。
-          实测主干代码本身失败率约 2/6～3/4（与改动无关，同一断言）。判定方法：重跑两三次，且未触碰
-          <code>CFG.eat.interval</code> 相关逻辑即为抖动。修复方向：改为固定 dt 直接驱动 <code>update()</code>。
+          <b>如实记录：这里曾经有一个随机失败的用例，现已修复。</b>
+          「应为多帧逐个消耗，而非一次性吞并」原先绑在真实帧推进的墙钟时长上 —— 一批帧耗时超过
+          <em data-fact="mechanics.eatInterval"></em> 秒时，三次转移会落进同一个快照批次，断言就报
+          <code>递减次数=1</code>（同一份主干代码实测失败率约 2/6～3/4，与玩法无关）。
+          现在改为<b>固定步长</b>直接驱动 <code>update() + render()</code>
+          （<code>ticks(game, n, dt)</code>，步长按秒给），时间基线与帧预算一起换算，连跑多次结果一致；
+          同类处理覆盖了反向吞噬、收编中立小人与无尽里程碑。另外，对局内用例会先把第 1 关目标抬高，
+          避免移动/摇杆用例顺路吃满人数导致提前通关、后续断言失效。
         </div>
         <p class="tiny dim">本项目<b>没有 CI 流水线、没有覆盖率统计</b>，因此本页不设相应板块（不留占位）。</p>
       </div>
@@ -542,9 +548,9 @@ npm run overview:data      # 重新生成本页数据</pre><button class="copy">
 <button class="to-top" id="toTop" title="返回顶部">↑</button>
 <div class="toast" id="toast"></div>
 
-<script src="./facts.js"></script>
-<script src="./charts.js"></script>
-<script src="./script.js"></script>
+<script src="./facts.js?v=20261004"></script>
+<script src="./charts.js?v=20261004"></script>
+<script src="./script.js?v=20261004"></script>
 
 <!--
   生成工具：Qoder 智能体 + scripts/visualization/generate_overview_facts.mjs

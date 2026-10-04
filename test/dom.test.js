@@ -178,6 +178,11 @@ const harness = `
     const startCount = g.player.count;
     assert(startCount >= 3, '开局人数异常: ' + startCount);
     assert(g.legions.length >= 2, '应存在敌军');
+    // 静态资源必须带 ?v= 版本号（GitHub Pages 强缓存 10 分钟，不换 URL 老访客会跑旧脚本）
+    const vTags = Array.prototype.slice.call(document.querySelectorAll('script[src]'))
+      .filter(s => s.getAttribute('src').indexOf('js/') === 0);
+    assert(vTags.length > 0 && vTags.every(s => s.getAttribute('src').indexOf('?v=') > 0),
+      '游戏脚本缺少 ?v= 版本号：' + vTags.map(s => s.getAttribute('src')).join(', '));
     assert(g.neutrals.length > 30, '中立小人过少: ' + g.neutrals.length);
     ok('进入对局：我方 ' + startCount + ' 人 / ' + (g.legions.length - 1) + ' 支敌军 / ' + g.neutrals.length + ' 个中立小人');
 
@@ -335,7 +340,11 @@ const harness = `
     }
     p.target.x = best.x; p.target.y = best.y;
     const c0 = p.count;
-    // 固定步长推进：一旦收编成功就停手，避免一路吃满触发通关、让后续断言失去对局环境
+    // 固定步长推进：一旦收编成功就停手，避免一路吃满触发通关、让后续断言失去对局环境。
+    // 注意：这一段可能跑好几秒游戏时间，若此时敌军还在场上，它会边吃中立小人长大、
+    // 反过来把玩家吞光（对局提前结束）——下一段本来就要清空敌军，这里提前清掉，
+    // 让「收编」这一段只受收编逻辑影响。
+    if (c0 === p.count) g.legions.forEach(L => { if (!L.isPlayer) { L.clearUnits(); L.alive = false; } });
     for (let i = 0; i < 300 && p.count === c0 && g.status === 'playing'; i++) ticks(g, 1);
     assert(p.count > c0, '接近中立小人后人数未增长: ' + c0 + ' -> ' + p.count);
     assert(g.status === 'playing', '收编测试后对局应仍在进行，实际 ' + g.status);
@@ -566,7 +575,8 @@ const harness = `
     await frames(30);
     assert(active('screen-reward'), '里程碑达成后未弹出奖励页');
     assert(ge.status === 'milestone', '里程碑期间对局应冻结，实际 ' + ge.status);
-    assert(Save.data.stats.endlessBest === STEP, '最高人数纪录未更新，实际 ' + Save.data.stats.endlessBest);
+    // 里程碑按「>= 阈值」触发，同一帧里顺路多吃一个中立小人也是正常的（峰值 50 或 51）
+    assert(Save.data.stats.endlessBest >= STEP, '最高人数纪录未更新，实际 ' + Save.data.stats.endlessBest);
     assert(String($('reward-title').textContent).indexOf('里程碑') >= 0,
       '结算标题应体现里程碑，实际 ' + $('reward-title').textContent);
     const cards2 = document.querySelectorAll('#reward-cards .reward-card');
