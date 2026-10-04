@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 小人军团吞噬战 —— 幂等启动脚本
+# 蚕食军团 —— 幂等启动脚本
 # 用法: bash scripts/start.sh   （PORT 环境变量可选，默认 8080）
 set -u
 

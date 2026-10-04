@@ -1,4 +1,4 @@
-# 小人军团吞噬战
+# 蚕食军团（Salami Legion）
 
 一款休闲 IO 风格的**军团吞噬对战**游戏。你操控一整支彩色小人军团在地图上滑行，
 碰到的中立小人会自动加入你，撞上别的军团则会爆发战斗。
@@ -91,7 +91,7 @@ npm test                      # jsdom 端到端测试：真实点击全部界面
 - 前端：原生 HTML5 + CSS3 + ES6（无框架、无构建步骤）
 - 渲染：Canvas 2D（预渲染精灵 + 空间网格）
 - 音效：WebAudio 实时合成（无音频资源文件）
-- 存档：localStorage
+- 存档：localStorage（键名 `mini_legion_save_v1`，与产品名解耦，改名不动键）
 - 服务：Node.js 零依赖静态服务器
 - 测试：Node.js + jsdom
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 小人军团吞噬战 · 零依赖静态服务
+ * 蚕食军团 · 零依赖静态服务
  * 监听 0.0.0.0，供 CNB 云原生开发环境端口转发/预览使用。
  *   启动： node server.js        (或 npm start)
  *   端口： PORT 环境变量，默认 8080
@@ -77,7 +77,7 @@ const server = http.createServer((req, res) => {
   if (pathname === '/healthz' || pathname === '/api/health') {
     return send(res, 200, JSON.stringify({
       ok: true,
-      service: '迷你军团吞噬战',
+      service: '蚕食军团',
       uptime: Math.round(process.uptime()),
       time: new Date().toISOString(),
     }), { 'Content-Type': 'application/json; charset=utf-8' });
@@ -113,7 +113,7 @@ server.on('error', (e) => {
 server.listen(PORT, HOST, () => {
   const proxy = process.env.CNB_VSCODE_PROXY_URI || '';
   console.log('==============================================');
-  console.log('  小人军团吞噬战 已启动');
+  console.log('  蚕食军团 已启动');
   console.log('  监听地址 : http://' + HOST + ':' + PORT);
   console.log('  健康检查 : /healthz');
   if (proxy) {

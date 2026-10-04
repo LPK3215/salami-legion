@@ -547,7 +547,7 @@ const timer = setInterval(() => {
 }, 60);
 
 function finish(r) {
-  console.log('===== 小人军团吞噬战 · 端到端测试 =====');
+  console.log('===== 蚕食军团 · 端到端测试 =====');
   (r.log || []).forEach((l) => console.log(l));
   if (jsdomErrors.length) {
     console.log('\n[运行期 JS 错误]');
