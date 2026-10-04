@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f24">
+<title>小人军团吞噬战</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ================= 主菜单 ================= -->
+<section class="screen active" id="screen-menu">
+  <div class="bg-blobs"></div>
+  <div class="menu-wrap">
+    <div class="logo-box">
+      <h1 class="game-logo">小人军团<span>吞噬战</span></h1>
+      <p class="game-sub">逐个吞噬 · 越打越大 · 一关一关打上去</p>
+      <div class="logo-preview"><canvas id="menu-preview" width="120" height="120"></canvas></div>
+    </div>
+
+    <div class="menu-btns">
+      <button class="btn btn-primary" id="btn-start">关卡挑战</button>
+      <button class="btn btn-endless" id="btn-endless">无尽挑战 <em id="endless-best">最高 第 0 层</em></button>
+      <button class="btn btn-ghost" id="btn-continue" hidden>继续挑战</button>
+      <div class="btn-row">
+        <button class="btn btn-soft" id="btn-levels">关卡选择</button>
+        <button class="btn btn-soft" id="btn-shop">皮肤商店</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-soft" id="btn-achv">成就</button>
+        <button class="btn btn-soft" id="btn-help">玩法说明</button>
+      </div>
+      <div class="tiny-row">
+        <button class="btn btn-tiny" id="btn-sound">音效：开</button>
+        <button class="btn btn-tiny" id="btn-control">操作：自动</button>
+        <button class="btn btn-tiny danger" id="btn-reset">清空存档</button>
+      </div>
+    </div>
+
+    <div class="coin-bar">金币 <b class="js-coins">0</b></div>
+  </div>
+</section>
+
+<!-- ================= 关卡选择 ================= -->
+<section class="screen" id="screen-levels">
+  <div class="page">
+    <header class="page-head">
+      <button class="btn-back" id="btn-levels-back">返回</button>
+      <h2>关卡选择</h2>
+      <div class="coin-bar small">金币 <b class="js-coins">0</b></div>
+    </header>
+    <p class="page-note">从第 1 关一路往下打，通关奖励的增益会持续累积，越打越强；直接从后期关卡开始会非常难。</p>
+    <div class="level-grid" id="level-grid"></div>
+  </div>
+</section>
+
+<!-- ================= 出征准备 ================= -->
+<section class="screen" id="screen-prep">
+  <div class="page">
+    <header class="page-head">
+      <button class="btn-back" id="btn-prep-back">返回</button>
+      <h2 id="prep-title">出征准备</h2>
+      <div class="coin-bar small">金币 <b class="js-coins">0</b></div>
+    </header>
+
+    <div class="prep-goal-box">
+      <div class="pg-goal" id="prep-goal">过关目标</div>
+      <div class="pg-tip" id="prep-tip"></div>
+    </div>
+
+    <h3 class="sec-title">① 选择开局军团人数</h3>
+    <div class="start-options" id="start-options"></div>
+
+    <h3 class="sec-title">② 选择本局技能（每局只能带 1 个）</h3>
+    <div class="skill-picker" id="skill-picker"></div>
+
+    <div class="prep-foot">
+      <button class="btn btn-primary big" id="btn-prep-go">开始战斗</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 游戏对局 ================= -->
+<section class="screen" id="screen-game">
+  <div class="game-wrap">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <div class="hud">
+    <div class="hud-top">
+      <div class="hud-side">
+        <div class="pill pill-level" id="hud-level">第 1 关</div>
+        <div class="pill pill-goal" id="hud-goal">目标</div>
+      </div>
+      <div class="hud-center">
+        <div class="timer" id="hud-timer">00:00</div>
+        <div class="goalbar"><i id="goalbar-fill"></i></div>
+      </div>
+      <div class="hud-side right">
+        <button class="icon-btn" id="btn-pause">❚❚</button>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="mini-wrap">
+        <canvas id="minimap" width="150" height="112"></canvas>
+        <div class="enemy-list" id="enemy-list"></div>
+      </div>
+      <div class="count-wrap">
+        <div class="count-label">我方军团</div>
+        <div class="count-num" id="hud-count">0</div>
+        <div class="buff-tags" id="buff-tags"></div>
+      </div>
+      <div class="skill-wrap">
+        <button class="skill-btn" id="btn-skill">
+          <span class="skill-badge" id="skill-badge">速</span>
+          <span class="skill-cd" id="skill-cd"></span>
+        </button>
+        <div class="skill-name" id="skill-name">急速集结</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint-overlay" id="hint-overlay">按住屏幕并滑动，控制整支军团移动</div>
+
+  <div class="overlay" id="pause-overlay">
+    <div class="panel">
+      <h2>已暂停</h2>
+      <p class="panel-sub">深呼吸，想想下一步该吞谁</p>
+      <button class="btn btn-primary" id="btn-resume">继续游戏</button>
+      <button class="btn btn-soft" id="btn-restart">重打本关</button>
+      <button class="btn btn-soft danger" id="btn-quit">放弃本次挑战</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 通关奖励 ================= -->
+<section class="screen" id="screen-reward">
+  <div class="page center">
+    <div class="reward-head">
+      <div class="reward-stars" id="reward-stars"></div>
+      <h2 id="reward-title">关卡通过！</h2>
+      <p class="panel-sub" id="reward-sub"></p>
+      <div class="coin-gain">获得 <b id="reward-coin">+0</b> 金币</div>
+    </div>
+    <h3 class="sec-title center">选择一项奖励（三选一）</h3>
+    <div class="reward-cards" id="reward-cards"></div>
+    <div class="prep-foot">
+      <button class="btn btn-primary big" id="btn-reward-next">进入下一关</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 失败 ================= -->
+<section class="screen" id="screen-lose">
+  <div class="page center">
+    <div class="lose-face">:(</div>
+    <h2 id="lose-title">挑战失败</h2>
+    <p class="panel-sub" id="lose-sub"></p>
+    <div class="coin-gain dim">安慰奖 <b id="lose-coin">+0</b></div>
+    <div class="prep-foot">
+      <button class="btn btn-primary big" id="btn-lose-retry">再来一次</button>
+      <button class="btn btn-soft" id="btn-lose-menu">返回主菜单</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 商店 ================= -->
+<section class="screen" id="screen-shop">
+  <div class="page">
+    <header class="page-head">
+      <button class="btn-back" id="btn-shop-back">返回</button>
+      <h2>皮肤商店</h2>
+      <div class="coin-bar small">金币 <b class="js-coins">0</b></div>
+    </header>
+    <p class="page-note">皮肤只改变外观，不影响任何数值平衡。</p>
+    <div class="skin-grid" id="skin-grid"></div>
+  </div>
+</section>
+
+<!-- ================= 成就 ================= -->
+<section class="screen" id="screen-achv">
+  <div class="page">
+    <header class="page-head">
+      <button class="btn-back" id="btn-achv-back">返回</button>
+      <h2>成就</h2>
+      <div class="coin-bar small" id="achv-progress">已完成 0 / 0</div>
+    </header>
+    <div class="achv-list" id="achv-list"></div>
+  </div>
+</section>
+
+<!-- ================= 玩法说明 ================= -->
+<section class="screen" id="screen-help">
+  <div class="page">
+    <header class="page-head">
+      <button class="btn-back" id="btn-help-back">返回</button>
+      <h2>玩法说明</h2>
+      <div></div>
+    </header>
+    <div class="help-body">
+      <h3>两种游戏模式</h3>
+      <ul>
+        <li><b>关卡挑战</b>：主线 13 关，一关一关推进。每关有明确目标（达到指定人数 / 消灭所有敌军），达成即结算并进入三选一奖励，然后下一关。</li>
+        <li><b>无尽挑战</b>：无限层数，一直打下去。每过一层目标人数就更高、敌军更多更强、棋盘还会逐层变大，看你能撑到第几层。</li>
+        <li>两种模式都是<b>一次挑战 = 先选技能与开局人数，然后连续闯关</b>，中间靠三选一奖励不断变强。</li>
+      </ul>
+
+      <h3>核心操作 · 电脑端</h3>
+      <ul>
+        <li><b>鼠标</b>：移动鼠标即可控制方向，军团会朝鼠标所在位置移动，目标点会有十字准星提示。</li>
+        <li><b>键盘移动</b>：<code>W A S D</code> 或 <code>↑ ← ↓ →</code>，按住即走，<b>同时按两个方向可斜向移动</b>，松开立即停下。</li>
+        <li><b>键盘技能</b>：<code>空格</code> / <code>E</code> / <code>K</code> 释放技能。</li>
+        <li><b>暂停</b>：<code>Esc</code> 或 <code>P</code>，也可以点右上角按钮。</li>
+        <li>鼠标与键盘可以随时混用，谁最后操作就听谁的。</li>
+      </ul>
+
+      <h3>核心操作 · 移动端</h3>
+      <ul>
+        <li><b>虚拟摇杆</b>：按住屏幕任意位置会出现摇杆，<b>拖动方向 = 移动方向，拖得越远走得越快</b>；松手立即停下。</li>
+        <li>摇杆出现在你手指按下的地方，所以左手右手、横屏竖屏都顺手，不用去够固定按钮。</li>
+        <li><b>技能</b>：点右下角圆形技能按钮（手指不会误触到摇杆，可多指同时操作）。</li>
+        <li>如果习惯「点哪走哪」，可以在主菜单把「操作」切换为 <b>跟随手指</b> 模式。</li>
+        <li>切到后台会自动暂停，回来点「继续游戏」即可。</li>
+      </ul>
+
+      <h3>最大特色：逐个单位吞噬</h3>
+      <ul>
+        <li>两支军团接触后，<b>不会一次性吞并整队</b>，而是每 0.3 秒 1 个单位地持续消耗。</li>
+        <li>我方 5 人 vs 敌方 3 人 → 逐个吃掉对方，最终我方 8 人。</li>
+        <li>我方 5 人 vs 敌方 10 人 → 我方被逐个吞掉，人数持续下降，<b>要立刻跑！</b></li>
+        <li>所以：看见蓝色标记（比我方少）就冲，看见红色标记（比我方多）就跑。</li>
+      </ul>
+
+      <h3>成长系统</h3>
+      <ul>
+        <li><b>中立小人</b>：地图上四处游荡的白色小人，碰到就加入我方。</li>
+        <li><b>关卡目标</b>：达到指定人数，或消灭所有敌军。</li>
+        <li><b>三选一奖励</b>：通关后从「金币 / 技能解锁升级 / 本局增益」中选 1 项。</li>
+        <li><b>本局增益</b>：在本次挑战内所有关卡持续累积，越打越强。</li>
+        <li><b>金币</b>：用于商店解锁皮肤；<b>成就</b>也会发放金币。</li>
+      </ul>
+
+      <h3>技能</h3>
+      <ul>
+        <li>急速集结：短时间大幅提升移动速度，用来追杀或逃命。</li>
+        <li>临时增援：立刻召唤一批援军，限时存在，到期会离开。</li>
+        <li>诱捕：吸引周围中立小人主动靠拢。</li>
+        <li>狂暴吞噬：短时间内吞噬速度翻倍。</li>
+        <li>时间迟缓：让附近敌军变慢。</li>
+        <li>坚壁：短时间内我方单位不会被吞噬，绝境保命。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div id="toast-wrap"></div>
+
+<script src="js/config.js"></script>
+<script src="js/save.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

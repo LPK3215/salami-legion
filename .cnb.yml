@@ -1,0 +1,15 @@
+# CNB 云原生开发环境配置
+# 打开云原生开发（WebIDE / VSCode 客户端）时自动启动本项目服务，
+# 并通过 CNB 端口网关转发，可直接在浏览器预览。
+$:
+  vscode:
+    - services:
+        - vscode
+      env:
+        # 进入开发环境时自动执行的命令：幂等拉起静态服务（后台运行，不占用终端）
+        CNB_WELCOME_CMD: bash /workspace/scripts/start.sh
+      stages:
+        - name: 环境自检
+          script:
+            - node -v
+            - echo "云原生开发环境已就绪，服务将由 CNB_WELCOME_CMD 自动启动"

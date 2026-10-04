@@ -1,0 +1,19 @@
+{
+  "name": "mini-legion-io",
+  "version": "1.0.0",
+  "private": true,
+  "description": "小人军团吞噬战 —— 逐个单位吞噬的休闲军团吞噬游戏（纯前端 Canvas，零运行时依赖）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node test/dom.test.js"
+  },
+  "keywords": ["game", "io", "canvas", "browser"],
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.1"
+  }
+}
