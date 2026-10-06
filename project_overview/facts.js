@@ -1,6 +1,6 @@
 /* 本文件由 scripts/visualization/generate_overview_facts.mjs 自动生成，请勿手工编辑。
  *    重新生成：node scripts/visualization/generate_overview_facts.mjs  或  npm run overview:data
- *    生成时间：2026-10-06 09:07Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
+ *    生成时间：2026-10-06 09:10Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
  *    js/save.js、package.json、css/style.css、index.html、test/dom.test.js、docs/04-development.md）。 */
 window.OVERVIEW_FACTS = {
  "meta": {
@@ -19,7 +19,7 @@ window.OVERVIEW_FACTS = {
   "runtimeDeps": 0,
   "devDeps": 1,
   "saveKey": "mini_legion_save_v1",
-  "generatedAt": "2026-10-06 09:07Z",
+  "generatedAt": "2026-10-06 09:10Z",
   "generator": "scripts/visualization/generate_overview_facts.mjs"
  },
  "content": {
@@ -106,7 +106,7 @@ window.OVERVIEW_FACTS = {
  },
  "lines": {
   "index.html": 293,
-  "css/style.css": 597,
+  "css/style.css": 610,
   "js/config.js": 375,
   "js/engine.js": 2401,
   "js/ui.js": 922,
@@ -124,7 +124,7 @@ window.OVERVIEW_FACTS = {
  },
  "totals": {
   "jsLines": 3854,
-  "cssLines": 597,
+  "cssLines": 610,
   "htmlLines": 293,
   "testLines": 1389,
   "docFiles": 5,
@@ -957,8 +957,8 @@ window.OVERVIEW_FACTS = {
      "name": "style.css",
      "path": "css/style.css",
      "type": "file",
-     "bytes": 28530,
-     "lines": 597
+     "bytes": 29745,
+     "lines": 610
     }
    ]
   },
@@ -1232,8 +1232,8 @@ window.OVERVIEW_FACTS = {
    "name": "CHANGELOG.md",
    "path": "CHANGELOG.md",
    "type": "file",
-   "bytes": 30998,
-   "lines": 369
+   "bytes": 32097,
+   "lines": 382
   },
   {
    "name": "CODE_OF_CONDUCT.md",

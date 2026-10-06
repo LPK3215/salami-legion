@@ -9,24 +9,24 @@
 </defs>
 <rect width="1180" height="824" fill="url(#bg)"/>
 <text x="30" y="46" font-size="24" font-weight="800" fill="url(#ttl)">蚕食军团 · 架构与数据流</text>
-<text x="30" y="72" font-size="13" fill="rgba(234,241,255,.62)">纯前端单机游戏：无后端、无数据库、无第三方运行库。自上而下 = 页面 → 真源配置 → 引擎每帧流水线 → 模块 → 浏览器能力 → 分发</text>
+<text x="30" y="72" font-size="13" fill="rgba(234,241,255,.72)">纯前端单机游戏：无后端、无数据库、无第三方运行库。自上而下 = 页面 → 真源配置 → 引擎每帧流水线 → 模块 → 浏览器能力 → 分发</text>
 <line x1="30" y1="84" x2="1150" y2="84" stroke="#3d9bff" stroke-opacity=".35"/>
   <text x="30" y="136" font-size="11" fill="#3d9bff" fill-opacity=".85">表现层</text>
   <line x1="112" y1="100" x2="112" y2="164" stroke="#3d9bff" stroke-opacity=".25"/>
   <rect x="130" y="100" width="300" height="64" rx="9" fill="rgba(255,255,255,.05)" stroke="#3d9bff" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="280" y="129" text-anchor="middle" font-size="14" font-weight="700" fill="#3d9bff">index.html</text>
-  <text x="280" y="147" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">293 行 · 各屏 DOM 骨架</text>
+  <text x="280" y="147" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">293 行 · 各屏 DOM 骨架</text>
   <rect x="450" y="100" width="300" height="64" rx="9" fill="rgba(255,255,255,.05)" stroke="#3d9bff" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="600" y="129" text-anchor="middle" font-size="14" font-weight="700" fill="#3d9bff">css/style.css</text>
-  <text x="600" y="147" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">597 行 · 样式/断点/主题色</text>
+  <text x="600" y="147" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">610 行 · 样式/断点/主题色</text>
   <rect x="770" y="100" width="340" height="64" rx="9" fill="rgba(255,255,255,.05)" stroke="#2ee6a8" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="5 4"/>
   <text x="940" y="129" text-anchor="middle" font-size="14" font-weight="700" fill="#2ee6a8">无框架 · 无构建</text>
-  <text x="940" y="147" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">运行时依赖 0 个，刷新即生效</text>
+  <text x="940" y="147" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">运行时依赖 0 个，刷新即生效</text>
   <text x="30" y="260" font-size="11" fill="#ffd93d" fill-opacity=".85">数据真源</text>
   <line x1="112" y1="200" x2="112" y2="312" stroke="#ffd93d" stroke-opacity=".25"/>
   <rect x="130" y="200" width="980" height="112" rx="10" fill="rgba(255,255,255,.05)" stroke="#ffd93d" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="620" y="224" text-anchor="middle" font-size="15" font-weight="700" fill="#ffd93d">js/config.js</text>
-  <text x="620" y="242" text-anchor="middle" font-size="12" fill="rgba(234,241,255,.62)">375 行 —— 关卡 / 技能 / 增益 / 皮肤 / 成就 / 全局参数的唯一真源</text>
+  <text x="620" y="242" text-anchor="middle" font-size="12" fill="rgba(234,241,255,.72)">375 行 —— 关卡 / 技能 / 增益 / 皮肤 / 成就 / 全局参数的唯一真源</text>
   <rect x="160" y="262" width="58" height="24" rx="12" fill="rgba(255,255,255,.06)" stroke="#ffd93d" stroke-opacity=".5"/>
   <text x="189" y="278" text-anchor="middle" font-size="12" fill="#ffd93d">关卡 13</text>
   <rect x="228" y="262" width="50" height="24" rx="12" fill="rgba(255,255,255,.06)" stroke="#ffd93d" stroke-opacity=".5"/>
@@ -47,20 +47,20 @@
   <line x1="112" y1="348" x2="112" y2="518" stroke="#a66bff" stroke-opacity=".25"/>
   <rect x="130" y="348" width="980" height="170" rx="10" fill="rgba(255,255,255,.05)" stroke="#a66bff" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="620" y="372" text-anchor="middle" font-size="15" font-weight="700" fill="#a66bff">js/engine.js</text>
-  <text x="620" y="390" text-anchor="middle" font-size="12" fill="rgba(234,241,255,.62)">2401 行 · Legion 类 / AI / 编队 / 碰撞 / 渲染 · 每帧顺序如下</text>
+  <text x="620" y="390" text-anchor="middle" font-size="12" fill="rgba(234,241,255,.72)">2401 行 · Legion 类 / AI / 编队 / 碰撞 / 渲染 · 每帧顺序如下</text>
   <rect x="158" y="404" width="122" height="76" rx="9" fill="rgba(255,255,255,.05)" stroke="#a66bff" stroke-opacity=".7" stroke-width="1.4"/>
   <text x="219" y="436" text-anchor="middle" font-size="13.5" font-weight="700" fill="#a66bff">输入</text>
-  <text x="219" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.62)">指针·键盘·摇杆</text>
+  <text x="219" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.72)">指针·键盘·摇杆</text>
   <line x1="280" y1="442" x2="286" y2="442" stroke="#a66bff" stroke-width="1.6" stroke-opacity=".7"/>
   <path d="M 286 437.5 L 286 446.5 L 294 442 Z" fill="#a66bff" fill-opacity=".8"/>
   <rect x="294" y="404" width="122" height="76" rx="9" fill="rgba(255,255,255,.05)" stroke="#a66bff" stroke-opacity=".7" stroke-width="1.4"/>
   <text x="355" y="436" text-anchor="middle" font-size="13.5" font-weight="700" fill="#a66bff">目标点</text>
-  <text x="355" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.62)">平滑转向</text>
+  <text x="355" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.72)">平滑转向</text>
   <line x1="416" y1="442" x2="422" y2="442" stroke="#a66bff" stroke-width="1.6" stroke-opacity=".7"/>
   <path d="M 422 437.5 L 422 446.5 L 430 442 Z" fill="#a66bff" fill-opacity=".8"/>
   <rect x="430" y="404" width="122" height="76" rx="9" fill="rgba(255,255,255,.05)" stroke="#a66bff" stroke-opacity=".7" stroke-width="1.4"/>
   <text x="491" y="436" text-anchor="middle" font-size="13.5" font-weight="700" fill="#a66bff">编队移动</text>
-  <text x="491" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.62)">间距 13</text>
+  <text x="491" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.72)">间距 13</text>
   <line x1="552" y1="442" x2="558" y2="442" stroke="#a66bff" stroke-width="1.6" stroke-opacity=".7"/>
   <path d="M 558 437.5 L 558 446.5 L 566 442 Z" fill="#a66bff" fill-opacity=".8"/>
   <rect x="566" y="404" width="122" height="76" rx="9" fill="rgba(255,91,110,.14)" stroke="#ff5b6e" stroke-opacity=".7" stroke-width="2.2"/>
@@ -70,47 +70,47 @@
   <path d="M 694 437.5 L 694 446.5 L 702 442 Z" fill="#a66bff" fill-opacity=".8"/>
   <rect x="702" y="404" width="122" height="76" rx="9" fill="rgba(255,255,255,.05)" stroke="#a66bff" stroke-opacity=".7" stroke-width="1.4"/>
   <text x="763" y="436" text-anchor="middle" font-size="13.5" font-weight="700" fill="#a66bff">AI 决策</text>
-  <text x="763" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.62)">追 / 逃 / 收编</text>
+  <text x="763" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.72)">追 / 逃 / 收编</text>
   <line x1="824" y1="442" x2="830" y2="442" stroke="#a66bff" stroke-width="1.6" stroke-opacity=".7"/>
   <path d="M 830 437.5 L 830 446.5 L 838 442 Z" fill="#a66bff" fill-opacity=".8"/>
   <rect x="838" y="404" width="122" height="76" rx="9" fill="rgba(255,255,255,.05)" stroke="#a66bff" stroke-opacity=".7" stroke-width="1.4"/>
   <text x="899" y="436" text-anchor="middle" font-size="13.5" font-weight="700" fill="#a66bff">空间网格</text>
-  <text x="899" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.62)">碰撞裁剪</text>
+  <text x="899" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.72)">碰撞裁剪</text>
   <line x1="960" y1="442" x2="966" y2="442" stroke="#a66bff" stroke-width="1.6" stroke-opacity=".7"/>
   <path d="M 966 437.5 L 966 446.5 L 974 442 Z" fill="#a66bff" fill-opacity=".8"/>
   <rect x="974" y="404" width="122" height="76" rx="9" fill="rgba(255,255,255,.05)" stroke="#a66bff" stroke-opacity=".7" stroke-width="1.4"/>
   <text x="1035" y="436" text-anchor="middle" font-size="13.5" font-weight="700" fill="#a66bff">Canvas 渲染</text>
-  <text x="1035" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.62)">精灵 + 相机</text>
+  <text x="1035" y="456" text-anchor="middle" font-size="10.5" fill="rgba(234,241,255,.72)">精灵 + 相机</text>
   <text x="30" y="582" font-size="11" fill="#1f6fd0" fill-opacity=".85">外围模块</text>
   <line x1="112" y1="546" x2="112" y2="610" stroke="#1f6fd0" stroke-opacity=".25"/>
   <rect x="130" y="546" width="316" height="64" rx="9" fill="rgba(255,255,255,.05)" stroke="#1f6fd0" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="288" y="575" text-anchor="middle" font-size="14" font-weight="700" fill="#1f6fd0">js/ui.js</text>
-  <text x="288" y="593" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">922 行 · 界面流转与渲染</text>
+  <text x="288" y="593" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">922 行 · 界面流转与渲染</text>
   <rect x="466" y="546" width="316" height="64" rx="9" fill="rgba(255,255,255,.05)" stroke="#1f6fd0" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="624" y="575" text-anchor="middle" font-size="14" font-weight="700" fill="#1f6fd0">js/save.js</text>
-  <text x="624" y="593" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">103 行 · 存档读写</text>
+  <text x="624" y="593" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">103 行 · 存档读写</text>
   <rect x="802" y="546" width="308" height="64" rx="9" fill="rgba(255,255,255,.05)" stroke="#1f6fd0" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="956" y="575" text-anchor="middle" font-size="14" font-weight="700" fill="#1f6fd0">js/audio.js</text>
-  <text x="956" y="593" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">53 行 · 音效合成</text>
+  <text x="956" y="593" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">53 行 · 音效合成</text>
   <text x="30" y="672" font-size="11" fill="#2ee6a8" fill-opacity=".85">浏览器能力</text>
   <line x1="112" y1="638" x2="112" y2="698" stroke="#2ee6a8" stroke-opacity=".25"/>
   <rect x="130" y="638" width="316" height="60" rx="9" fill="rgba(255,255,255,.05)" stroke="#2ee6a8" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="288" y="665" text-anchor="middle" font-size="14" font-weight="700" fill="#2ee6a8">Canvas 2D</text>
-  <text x="288" y="683" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">预渲染精灵 + 空间网格</text>
+  <text x="288" y="683" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">预渲染精灵 + 空间网格</text>
   <rect x="466" y="638" width="316" height="60" rx="9" fill="rgba(255,255,255,.05)" stroke="#2ee6a8" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="624" y="665" text-anchor="middle" font-size="14" font-weight="700" fill="#2ee6a8">WebAudio</text>
-  <text x="624" y="683" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">实时合成，无音频文件</text>
+  <text x="624" y="683" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">实时合成，无音频文件</text>
   <rect x="802" y="638" width="308" height="60" rx="9" fill="rgba(255,255,255,.05)" stroke="#2ee6a8" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="956" y="665" text-anchor="middle" font-size="14" font-weight="700" fill="#2ee6a8">localStorage</text>
-  <text x="956" y="683" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">键 mini_legion_save_v1</text>
+  <text x="956" y="683" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">键 mini_legion_save_v1</text>
   <text x="30" y="758" font-size="11" fill="#ffd93d" fill-opacity=".85">分发</text>
   <line x1="112" y1="724" x2="112" y2="784" stroke="#ffd93d" stroke-opacity=".25"/>
   <rect x="130" y="724" width="480" height="60" rx="9" fill="rgba(255,255,255,.05)" stroke="#ffd93d" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="370" y="751" text-anchor="middle" font-size="14" font-weight="700" fill="#ffd93d">server.js（本地 / CNB 预览）</text>
-  <text x="370" y="769" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">126 行 · 零依赖静态服务 + /healthz</text>
+  <text x="370" y="769" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">126 行 · 零依赖静态服务 + /healthz</text>
   <rect x="630" y="724" width="480" height="60" rx="9" fill="rgba(255,255,255,.05)" stroke="#ffd93d" stroke-opacity=".55" stroke-width="1.5"/>
   <text x="870" y="751" text-anchor="middle" font-size="14" font-weight="700" fill="#ffd93d">GitHub Pages（经典模式）</text>
-  <text x="870" y="769" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.62)">发布源 main / 仓库根 · Node &gt;=18</text>
+  <text x="870" y="769" text-anchor="middle" font-size="11.5" fill="rgba(234,241,255,.72)">发布源 main / 仓库根 · Node &gt;=18</text>
   <line x1="300" y1="164" x2="300" y2="191" stroke="#3d9bff" stroke-width="2" stroke-opacity=".7"/>
   <path d="M 295 191 L 305 191 L 300 200 Z" fill="#3d9bff" fill-opacity=".85"/>
   <line x1="620" y1="312" x2="620" y2="339" stroke="#3d9bff" stroke-width="2" stroke-opacity=".7"/>
@@ -131,5 +131,5 @@
   <path d="M 365 715 L 375 715 L 370 724 Z" fill="#3d9bff" fill-opacity=".85"/>
   <line x1="870" y1="698" x2="870" y2="715" stroke="#3d9bff" stroke-width="2" stroke-opacity=".7"/>
   <path d="M 865 715 L 875 715 L 870 724 Z" fill="#3d9bff" fill-opacity=".85"/>
-<text x="30" y="810" font-size="11.5" fill="rgba(234,241,255,.62)">端到端测试 test/dom.test.js：1389 行 · 18 段流程 · 262 条断言 · 58 项界面校验　|　版本 v1.4.0 · MIT · 生成于 2026-10-06（数字源自 js/config.js、package.json、css/style.css）</text>
+<text x="30" y="810" font-size="11.5" fill="rgba(234,241,255,.72)">端到端测试 test/dom.test.js：1389 行 · 18 段流程 · 262 条断言 · 58 项界面校验　|　版本 v1.4.0 · MIT · 生成于 2026-10-06（数字源自 js/config.js、package.json、css/style.css）</text>
 </svg>

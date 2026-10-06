@@ -14,7 +14,7 @@
   --panel:rgba(255,255,255,.075);
   --panel-b:rgba(255,255,255,.15);
   --txt:#eaf1ff;
-  --txt-dim:rgba(234,241,255,.62);
+  --txt-dim:rgba(234,241,255,.72);   /* 辅助文字：原来只有 .62，在深底上偏糊 */
   --font:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
 }
 
@@ -183,7 +183,8 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .page-head{
   display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;
 }
-.page-head h2{margin:0;font-size:21px;font-weight:900;letter-spacing:.5px;}
+/* 标题占满中间剩余空间并居中：宽屏上「返回」与「金币」宽度不等，靠 space-between 会让标题偏左 */
+.page-head h2{margin:0;font-size:21px;font-weight:900;letter-spacing:.5px;flex:1;text-align:center;}
 .page-note{font-size:12px;color:var(--txt-dim);margin:-6px 0 14px;}
 .sec-title{
   font-size:15px;font-weight:800;margin:22px 0 12px;color:#cfe0ff;
@@ -257,9 +258,11 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
   padding:1px 7px;border-radius:999px;}
 .sk-lock{font-style:normal;font-size:11px;color:#ff9aa6;background:rgba(255,90,110,.14);
   padding:1px 7px;border-radius:999px;}
-.sk-desc{font-size:12px;color:var(--txt-dim);margin-top:4px;line-height:1.5;}
-.sk-cd{font-size:11px;color:rgba(255,255,255,.35);margin-top:3px;}
-.prep-foot{margin-top:26px;display:flex;flex-direction:column;gap:10px;width:100%;max-width:420px;}
+.sk-desc{font-size:13px;color:rgba(234,241,255,.82);margin-top:4px;line-height:1.55;}
+.sk-cd{font-size:11px;color:rgba(255,255,255,.48);margin-top:3px;}
+/* 宽屏必须显式居中：页面（.page）本身是居中的，但带 max-width 的整宽子元素默认贴左边 ——
+   手机上因为页面比 420px 还窄，看着才是居中的，于是桌面端「开始战斗」跑到了左侧 */
+.prep-foot{margin:26px auto 0;display:flex;flex-direction:column;gap:10px;width:100%;max-width:420px;}
 
 /* ---------------- 对局 ---------------- */
 .game-wrap{position:absolute;inset:0;}
@@ -378,17 +381,20 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 
 .overlay{
   position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-  background:rgba(6,10,24,.78);backdrop-filter:blur(6px);z-index:20;padding:20px;
+  background:rgba(6,10,24,.52);backdrop-filter:blur(3px);z-index:20;padding:20px;
 }
 .overlay.active{display:flex;}
 .panel{
-  width:100%;max-width:340px;background:linear-gradient(180deg,rgba(38,50,96,.98),rgba(20,28,61,.98));
-  border:1px solid var(--panel-b);border-radius:22px;padding:24px 20px;
+  width:100%;max-width:340px;
+  /* 半透明 + 自身模糊：外面看得见战场，面板里的文字又不会被背景干扰 */
+  background:linear-gradient(180deg,rgba(38,50,96,.82),rgba(20,28,61,.88));
+  backdrop-filter:blur(12px) saturate(1.05);-webkit-backdrop-filter:blur(12px) saturate(1.05);
+  border:1px solid rgba(255,255,255,.2);border-radius:22px;padding:24px 20px;
   display:flex;flex-direction:column;gap:10px;text-align:center;
-  box-shadow:0 24px 60px rgba(0,0,0,.6);
+  box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08);
 }
 .panel h2{margin:0 0 4px;font-size:22px;font-weight:900;}
-.panel-sub{margin:0 0 10px;font-size:12px;color:var(--txt-dim);line-height:1.6;}
+.panel-sub{margin:0 0 10px;font-size:13px;color:rgba(234,241,255,.78);line-height:1.6;}
 
 /* ---------------- 结算 / 奖励 ---------------- */
 .reward-head{padding:14px 0 4px;display:flex;flex-direction:column;align-items:center;gap:6px;}
@@ -425,7 +431,7 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
   box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 6px 16px rgba(0,0,0,.35);
 }
 .rc-title{font-size:15px;font-weight:900;}
-.rc-desc{font-size:12px;color:var(--txt-dim);line-height:1.55;}
+.rc-desc{font-size:13px;color:rgba(234,241,255,.82);line-height:1.55;}
 .rc-kind{font-size:10px;font-weight:800;color:var(--c);letter-spacing:1px;
   padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.07);}
 .reward-card.fade{opacity:.28;filter:grayscale(.7);}
@@ -439,17 +445,20 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 
 /* ---------------- 无尽里程碑浮层（半透明，不切页，背后的战况仍然可见） ---------------- */
 .ms-overlay{
-  background:rgba(6,10,24,.40);          /* 遮罩透度高于菜单页，重点是「能看见战场」 */
-  backdrop-filter:blur(1.5px) saturate(.92);
+  /* 只压一点亮度、几乎不糊：让玩家能看清战场还在动（选卡时最怕「眼前一黑」） */
+  background:rgba(6,10,24,.24);
+  backdrop-filter:blur(.5px) saturate(.96);
   overflow-y:auto;
 }
 .ms-panel{
   margin:auto;width:calc(100% - 24px);max-width:760px;
   display:flex;flex-direction:column;align-items:center;gap:11px;
   padding:16px 16px 14px;border-radius:22px;
-  background:linear-gradient(180deg,rgba(30,40,82,.80),rgba(15,21,48,.86));
-  border:1px solid rgba(255,255,255,.16);
-  box-shadow:0 22px 54px rgba(0,0,0,.5);
+  /* 面板自己半透明 + 自身强模糊：面板外看得见战场在动，面板内的文字仍然清晰 */
+  background:linear-gradient(180deg,rgba(26,35,74,.66),rgba(13,19,44,.78));
+  backdrop-filter:blur(14px) saturate(1.06);-webkit-backdrop-filter:blur(14px) saturate(1.06);
+  border:1px solid rgba(255,255,255,.2);
+  box-shadow:0 22px 54px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.08);
   animation:msIn .24s cubic-bezier(.2,.9,.3,1.15) both;
 }
 @keyframes msIn{from{opacity:0;transform:translateY(14px) scale(.97);}to{opacity:1;transform:none;}}
@@ -457,11 +466,15 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .ms-head h2{margin:2px 0 0;font-size:21px;font-weight:900;
   background:linear-gradient(180deg,#fff,#9fc6ff);-webkit-background-clip:text;background-clip:text;color:transparent;}
 .ms-head .panel-sub{margin:0;}
-.ms-cards .reward-card{flex:1 1 180px;max-width:224px;padding:15px 12px;}
+.ms-cards .reward-card{
+  flex:1 1 180px;max-width:224px;padding:15px 12px;
+  /* 面板变透之后，卡片要自己再实一点，否则压在浮层上读不清 */
+  background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.07));
+}
 /* 选完即走：已选的那张留一个短暂的高光，不阻塞回到战场 */
 .ms-cards .reward-card.picked{animation:msPick .36s ease both;}
 @keyframes msPick{0%{transform:translateY(-6px) scale(1.03)}60%{transform:translateY(-10px) scale(1.09)}100%{transform:translateY(-6px) scale(1.03)}}
-.ms-foot{font-size:11px;color:var(--txt-dim);letter-spacing:.4px;}
+.ms-foot{font-size:12px;color:rgba(234,241,255,.72);letter-spacing:.4px;}
 
 .lose-face{font-size:56px;font-weight:900;color:#ff7d8c;line-height:1;margin-bottom:6px;
   text-shadow:0 6px 18px rgba(255,90,110,.4);}
