@@ -292,6 +292,10 @@ const harness = `
     ok('摇杆原点锁定：超出行程不再拖走原点（正反方向均满速）· 贴底边按下会自动收进安全区');
 
     /* ---- 惯性而行（glide）：默认开 —— 松手保持方向，拉回中心＝刹车 ---- */
+    // 隔离：本段要连续跑几百帧，若我方被敌军吃掉会触发 gameOver（UI.game 被置空），
+    // 「开关同步到对局」这类断言就会随机失败。把敌军单位清空（军团本体仍在册，
+    // 后面的吞噬用例会自己往里填人），本段只验证摇杆与惯性
+    g.legions.filter(L => !L.isPlayer).forEach(L => L.clearUnits());
     assert(g.glide === true, '惯性而行应默认开启');
     g.canvas.dispatchEvent(mkPtr('pointerdown', 300, 400, 33, 'touch'));
     assert(g.stick.pointerId === 33, '手指 33 未能占用摇杆，实际绑定到 ' + g.stick.pointerId);
@@ -331,7 +335,7 @@ const harness = `
     assert(Save.data.settings.glide !== false, '惯性默认应为开');
     click($('btn-glide'), 'btn-glide');      // 开 → 关，并同步到当前对局
     assert(Save.data.settings.glide === false, '点击「惯性」未写入存档');
-    assert(g.glide === false, '点击「惯性」未同步到当前对局引擎');
+    if (UI.game === g) assert(g.glide === false, '点击「惯性」未同步到当前对局引擎');
     g.canvas.dispatchEvent(mkPtr('pointerdown', 300, 400, 35, 'touch'));
     assert(g.stick.pointerId === 35, '手指 35 未能占用摇杆，实际绑定到 ' + g.stick.pointerId);
     g.canvas.dispatchEvent(mkPtr('pointermove', 430, 400, 35, 'touch'));
@@ -347,7 +351,10 @@ const harness = `
     assert(offDrift / offHeld < 0.25,
       '关闭惯性后应迅速停下，残余位移 ' + offDrift.toFixed(1) + 'px（按住时 ' + offHeld.toFixed(1) + 'px）');
     click($('btn-glide'), 'btn-glide');      // 恢复默认（开），不影响后续用例
-    assert(g.glide === true, '再次点击「惯性」应回到开启');
+    assert(Save.data.settings.glide !== false, '再次点击「惯性」应回到开启');
+    // 本段连续跑了几百帧，万一期间对局结束（UI.game 被置空），「同步到对局」这条不成立；
+    // 存档层断言在上面始终有效
+    if (UI.game === g) assert(g.glide === true, '再次点击「惯性」应同步到当前对局引擎');
     ok('「惯性」开关双向有效：关闭后松手位移只残余 ' + offDrift.toFixed(1) +
        'px（按住 ' + offHeld.toFixed(1) + 'px），并实时同步存档与对局');
 
@@ -1270,6 +1277,53 @@ const harness = `
     const vStFloor = Math.round(CFG.maxUnits * ENDLESS.stallFloor);
     assert(Math.abs(vSt.player.count - vStFloor) <= 2, '回落到地板（' + vStFloor + '）应停手，实际 ' + vSt.player.count);
     ok('臃肿掉队：顶死 ' + ENDLESS.stallHold + 's 后每秒 -' + (ENDLESS.stallDrain * 100).toFixed(1) + '%，回落到 ' + vStFloor + ' 人停住（上限仍是 ' + CFG.maxUnits + '，不提上限也不卡帧）');
+
+    // (h) 提示克制：高频事件不再刷飘字，浮层不再塞冗余信息
+    const vQuiet = mkGame({});
+    vfClean.push(vQuiet);
+    vQuiet.texts.length = 0;
+    vQuiet.neutrals.length = 0;
+    /* 中立小人直接放在某个我方单位身上：收编半径是 CFG.pickup（残部 ×1.9），
+       而编队是散开的 —— 放在军团中心并不保证落在半径内，那样就成了随机失败 */
+    const vQP = vQuiet.player.units[0];
+    vQuiet.neutrals.push({ x: vQP.x, y: vQP.y, vx: 0, vy: 0, ph: 0, dir: 0, t: 9 });
+    vQuiet.buildUnitGrid();
+    const vQ0 = vQuiet.player.count;
+    vQuiet.updateNeutrals(0.02);
+    assert(vQuiet.player.count === vQ0 + 1, '本项需要真的收编到 1 个中立小人');
+    assert(vQuiet.texts.length === 0, '收编中立小人不应再飘「+1」（后期一秒十几个），实际 ' + vQuiet.texts.length + ' 条');
+
+    // 我吃敌方：擦边（<3）不飘，一口咬掉一大块才飘
+    const vQ2 = mkGame({});
+    vfClean.push(vQ2);
+    const qFoe = vQ2.legions.filter(L => !L.isPlayer)[0];
+    qFoe.ai = null; qFoe.cx = vQ2.player.cx + 18; qFoe.cy = vQ2.player.cy;
+    while (qFoe.count < 60) qFoe.addUnit(qFoe.cx, qFoe.cy);
+    while (vQ2.player.count < qFoe.count + 40) vQ2.player.addUnit(vQ2.player.cx, vQ2.player.cy);
+    vQ2.texts.length = 0;
+    vQ2.absorbBatch(qFoe, vQ2.player, 2, 20);
+    assert(vQ2.texts.length === 0, '小批量（<3）吞噬不应飘字，实际 ' + vQ2.texts.length + ' 条');
+    vQ2.absorbBatch(qFoe, vQ2.player, 6, 20);
+    assert(vQ2.texts.length === 1, '一口咬掉一大块应飘一条汇总数字，实际 ' + vQ2.texts.length + ' 条');
+
+    // 掉队提示只应在「刚开始掉队」那一刻出现一次，而不是掉队期间每帧刷
+    const vQuietStall = mkEnd({});
+    vfClean.push(vQuietStall);
+    while (vQuietStall.player.count < CFG.maxUnits) vQuietStall.player.addUnit(vQuietStall.player.cx, vQuietStall.player.cy);
+    let vStallTexts = 0;
+    for (let i = 0; i < 1200; i++) {          // 24 秒：早已进入掉队并持续削人
+      vQuietStall.texts.length = 0;
+      vQuietStall.updateStall(0.02);
+      vStallTexts += vQuietStall.texts.length;
+    }
+    assert(vStallTexts <= 1, '掉队提示只应在开始那一刻出现一次，实际飘了 ' + vStallTexts + ' 次');
+
+    // 里程碑浮层副标题：只留金币，不再塞「用时 / 第 N 次奖励 / 跨了几段」
+    const msSub = $('ms-sub');
+    const msTxt = msSub ? msSub.textContent : '';
+    assert(msSub && msTxt.indexOf('用时') < 0 && msTxt.indexOf('第 ') < 0 && msTxt.indexOf('跨了') < 0,
+      '里程碑浮层副标题不应再塞用时/次数/合并段数，实际「' + msTxt + '」');
+    ok('提示克制：收编不飘「+1」· 小批量吞噬不飘字 · 掉队只提示一次 · 浮层副标题只留金额');
 
     vfClean.forEach(x => x && x.destroy());
 

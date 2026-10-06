@@ -129,11 +129,11 @@ const UI = {
         save();
         apply();
         const desc = {
-          auto: '自动识别：触屏用虚拟摇杆，鼠标用指针跟随',
-          joystick: '强制虚拟摇杆（触屏推荐）',
-          follow: '强制跟随手指 / 指针：点哪走哪',
+          auto: '自动（触屏摇杆 · 鼠标跟随）',
+          joystick: '摇杆',
+          follow: '跟随（点哪走哪）',
         };
-        this.toast('操作方式：' + desc[next], 2200);
+        this.toast('操作：' + desc[next], 1800);
       });
       apply();
     }
@@ -151,10 +151,7 @@ const UI = {
         Save.data.settings.glide = !(Save.data.settings.glide !== false);
         save();
         applyGlide();
-        const on2 = Save.data.settings.glide !== false;
-        this.toast(on2
-          ? '惯性而行：松手后沿最后方向继续走（把摇杆拉回中心 / 按住 A+D 可刹车）'
-          : '松手即停：手指离开屏幕或松开方向键就站住', 2600);
+        /* 按钮文案本身就是状态（「惯性：保持方向 / 松手即停」），再弹一条长 toast 纯属重复 */
       });
       applyGlide();
     }
@@ -172,10 +169,7 @@ const UI = {
         Save.data.settings.shake = !(Save.data.settings.shake !== false);
         save();
         applyShake();
-        const on2 = Save.data.settings.shake !== false;
-        this.toast(on2
-          ? '震屏：只会在「吞掉整支军队 / 被大口吞食」时抖一下，规模越大抖得越轻'
-          : '震屏已关：大事件改用涟漪与边缘红闪提示，画面不再抖动', 2600);
+        // 同上：按钮文案就是状态，不再叠一条 toast
       });
       applyShake();
     }
@@ -545,20 +539,28 @@ const UI = {
     save();
     this.refreshCoins();
 
+    /* 这块以前塞了「用时 / 第几次奖励 / 当前人数 / 跨了几段」—— 全是玩家这一刻不需要读的信息，
+       而且人数还和上面的徽章重复。只留「拿到多少金币」与罕见的「新纪录」 */
     this.$('ms-threshold').textContent = res.threshold + ' 人';
-    this.$('ms-title').textContent = '里程碑达成：' + res.threshold + ' 人！';
-    const merged = res.crossed > 1 ? '（本次一口气跨了 ' + res.crossed + ' 段，合并为一次奖励）' : '';
-    this.$('ms-sub').textContent = '用时 ' + fmtTime(res.time) + ' · 第 ' + res.milestone +
-      ' 次奖励 · +' + res.coin + ' 金币 · 当前 ' + res.count + ' 人' +
-      (res.peak > prevBest ? ' · 新纪录！' : '') + merged;
+    this.$('ms-title').textContent = '里程碑达成';
+    this.$('ms-sub').textContent = '+' + res.coin + ' 金币' +
+      (res.peak > prevBest ? ' · 新纪录！' : '');
     this.renderMilestoneRewards();
     const ov = this.$('milestone-overlay');
     if (ov) ov.classList.add('active');
 
     const newAch = this.checkAchievements();
     if (newAch && newAch.length) {
-      newAch.forEach(a => this.toast('成就达成：' + a.name + '（+' + a.coins + ' 金币）', 2600));
+      this.toastAchievements(newAch);
     }
+  },
+
+  /* 成就提示：一次解锁多个时合并成一条，避免连弹好几条 toast */
+  toastAchievements(list) {
+    if (!list || !list.length) return;
+    const names = list.map(a => a.name).join('、');
+    const coins = list.reduce((s, a) => s + a.coins, 0);
+    this.toast('成就达成：' + names + '（+' + coins + ' 金币）', 2600);
   },
 
   /* ---- 里程碑三选一：点一张卡直接生效，短暂高光后自动回到战场（不需要再点「下一步」） ---- */
@@ -579,7 +581,7 @@ const UI = {
         this.$$('#ms-cards .reward-card').forEach(x => x.classList.add('fade'));
         el.classList.remove('fade');
         el.classList.add('picked');
-        this.toast('已获得：' + c.title, 1800);
+        /* 不再 toast「已获得：XX」：卡面刚被点中、高亮还在闪，再弹一条纯属重复 */
         this.msTimer = setTimeout(() => this.closeMilestone(), 380);
       }));
     });
@@ -670,7 +672,7 @@ const UI = {
     nextBtn.classList.remove('show');
 
     if (newAch && newAch.length) {
-      newAch.forEach(a => this.toast('成就达成：' + a.name + '（+' + a.coins + ' 金币）', 2600));
+      this.toastAchievements(newAch);
     }
   },
 

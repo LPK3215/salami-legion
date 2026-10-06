@@ -479,7 +479,7 @@
       for (const L of this.legions) {
         if (L.isPlayer || !L.alive) continue;
         if (dist2(L.cx, L.cy, c.x, c.y) <= k2) continue;
-        this.floatText(L.name + ' 溃逃', c.x, c.y - 80, '#9fd0ff', 1.2);
+        // 「XX 溃逃」不再飘字：敌人跑不跑与玩家决策无关，小地图会自然少一个点
         L.clearUnits();
         L.alive = false;
         n++;
@@ -1166,7 +1166,8 @@
           this.neutrals.splice(i, 1);
           this.burst(N.x, N.y, owner.body, 4, 55);
           if (owner.isPlayer) {
-            this.floatText('+1', N.x, N.y - 10, owner.body, 0.9);
+            /* 不再为每收编一个小人飘一次「+1」：后期一秒能飘十几个，纯噪音。
+               收编音效、粒子与 HUD 人数变化已经足够说明发生了什么 */
             SFX.join();
             this.playerGot(1);
           } else if (dist2(N.x, N.y, p.cx, p.cy) < 900 * 900) {
@@ -1279,8 +1280,13 @@
       const mx = (loser.cx + winner.cx) / 2, my = (loser.cy + winner.cy) / 2;
       /* 用涟漪代替抖动作替「一批被吸走」的反馈：看得见、但不晕 */
       this.ring(mx, my, winner.isPlayer ? winner.body : '#ff7d8c');
-      if (winner.isPlayer) this.floatText('-' + done, mx, my - 20, '#ffffff', 1.15);
-      else if (loser.isPlayer) this.floatText('-' + done, mx, my - 20, '#ff7d8c', 1.2);
+      /* 我吃敌方：只有「一口咬掉一大块」才飘字，零碎擦边交给粒子与涟漪；
+         被吃时一定飘，因为那是必须立刻知道的信息 */
+      if (winner.isPlayer) {
+        if (done >= 3) this.floatText('-' + done, mx, my - 20, '#ffffff', 1.15);
+      } else if (loser.isPlayer) {
+        this.floatText('-' + done, mx, my - 20, '#ff7d8c', 1.2);
+      }
       /* 只有真疼（一次被咬掉 ≥5% 且至少 3 个）才给一下轻抖 + 边缘红闪 */
       if (loser.isPlayer && done >= Math.max(3, Math.ceil(before * 0.05))) {
         this.addShake(2.2, 'hurt');
@@ -1336,7 +1342,7 @@
       if (L.hunter) this.hunterCd = ENDLESS.hunterRespawn;   // 猎手被吞掉：隔一段再刷，避免「刚杀完又来」
       const fx = L.isPlayer || (by && by.isPlayer) ? 3 : 1;
       for (let k = 0; k < fx; k++) this.burst(L.cx, L.cy, L.body, 16, 220);
-      this.floatText(L.name + ' 被吞噬！', L.cx, L.cy - 30, '#ffffff', 1.6);
+      this.floatText(L.name + ' 被吞', L.cx, L.cy - 30, '#ffffff', 1.35);
       if (this.hooks.onLegionDown) this.hooks.onLegionDown(L);
       if (L.isPlayer) this.gameOver('我军全军覆没');
     }
@@ -1497,7 +1503,7 @@
     }
     floatText(t, x, y, c, scale) {
       this.texts.push({ t, x, y, c: c || '#fff', life: 1.0, max: 1.0, s: scale || 1 });
-      if (this.texts.length > 40) this.texts.shift();
+      if (this.texts.length > 24) this.texts.shift();
     }
     updateParticles(dt) {
       for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -1757,9 +1763,9 @@
         this.ring(x, y, '#ff4d6d');
         this.floatText('猎手军团来袭！', x, y - 52, '#ff4d6d', 1.7);
         this.addShake(1.6, 'hunter');
-      } else {
-        this.floatText(pal.name + ' 来袭！', x, y - 46, pal.body, 1.4);
       }
+      /* 普通敌军的「来袭」不再飘字：后期补位频繁，而小地图与敌军队列已经标出了它们；
+         只有猎手（真正的威胁）保留提醒 */
       return A;
     }
 
@@ -1801,6 +1807,8 @@
       if (this.stallTime >= ENDLESS.stallHold) {
         this.stallDraining = true;
         this.stallDebt = 0;
+        // 只在「刚开始掉队」这一刻提示一次；掉队过程中每帧都飘的话就是刷屏
+        this.floatText('军团臃肿 · 开始掉队', p.cx, p.cy - p.radius - 16, '#ffd93d', 1.25);
         this.stallDrainStep(p, dt, floor);
       }
     }
@@ -1811,9 +1819,7 @@
       const n = Math.floor(this.stallDebt);
       if (n <= 0) return;
       this.stallDebt -= n;
-      let dropped = 0;
-      for (let i = 0; i < n && p.count > floor; i++) { if (this.drainOne(p)) dropped++; }
-      if (dropped > 0) this.floatText('军团太臃肿：开始掉队', p.cx, p.cy - p.radius - 16, '#ffd93d', 1.2);
+      for (let i = 0; i < n && p.count > floor; i++) this.drainOne(p);
     }
 
     buildResult(isWin) {
@@ -1920,23 +1926,23 @@
       let progress = 0, goalText = '';
       if (g.type === 'endless') {
         if (!isFinite(this.nextMilestone)) {
-          // 奖励全部领完（阈值已封顶在硬上限）：进度条走满，明确告诉玩家没有下一段了
+          // 奖励全部领完（阈值已封顶在硬上限）：进度条走满
           progress = 1;
-          goalText = '奖励已全部解锁 · 军团已达 ' + CFG.maxUnits + ' 人上限';
+          goalText = '奖励已全部解锁';
         } else {
           // 进度条是「上一段里程碑 → 下一段」之间，段长随时变，所以用两个阈值相减
           const span = Math.max(1, this.nextMilestone - this.milestonePrev);
           progress = clamp((p.count - this.milestonePrev) / span, 0, 1);
-          goalText = '下一里程碑：' + this.nextMilestone + ' 人（本段 +' + span + '）';
+          goalText = '里程碑 ' + this.nextMilestone + ' 人';
         }
       } else if (g.type === 'reach') {
         progress = clamp(p.count / g.val, 0, 1);
-        goalText = '目标：军团达到 ' + g.val + ' 人';
+        goalText = '目标 ' + g.val + ' 人';
       } else {
         const total = L.enemies.length;
         const alive = this.legions.filter(x => x.alive && !x.isPlayer).length;
         progress = clamp((total - alive) / total, 0, 1);
-        goalText = '目标：消灭所有敌军（剩余 ' + alive + '）';
+        goalText = '清剿敌军 · 剩 ' + alive + ' 支';
       }
       const enemies = this.legions.filter(x => !x.isPlayer && x.alive).map(x => ({
         name: x.name, body: x.body, count: x.count,
