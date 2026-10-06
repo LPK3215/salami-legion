@@ -1,13 +1,13 @@
 /* 本文件由 scripts/visualization/generate_overview_facts.mjs 自动生成，请勿手工编辑。
  *    重新生成：node scripts/visualization/generate_overview_facts.mjs  或  npm run overview:data
- *    生成时间：2026-10-06 07:05Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
+ *    生成时间：2026-10-06 08:20Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
  *    js/save.js、package.json、css/style.css、index.html、test/dom.test.js、docs/04-development.md）。 */
 window.OVERVIEW_FACTS = {
  "meta": {
   "project": "蚕食军团",
   "projectEn": "Salami Legion",
   "name": "salami-legion",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "license": "MIT",
   "description": "蚕食军团（Salami Legion）—— 按拍吞噬、盖住多少同批吞多少的休闲军团对战游戏（纯前端 Canvas，零运行时依赖）",
   "author": "LPK3215 <17538703215@163.com>",
@@ -19,7 +19,7 @@ window.OVERVIEW_FACTS = {
   "runtimeDeps": 0,
   "devDeps": 1,
   "saveKey": "mini_legion_save_v1",
-  "generatedAt": "2026-10-06 07:05Z",
+  "generatedAt": "2026-10-06 08:20Z",
   "generator": "scripts/visualization/generate_overview_facts.mjs"
  },
  "content": {
@@ -47,7 +47,9 @@ window.OVERVIEW_FACTS = {
    "milestoneFirst": 10,
    "milestoneStepBase": 40,
    "milestoneStepGrowth": 10,
-   "milestoneStepMax": 150,
+   "milestoneRatio": 0.35,
+   "milestoneStepRound": 10,
+   "milestoneStepMax": 400,
    "maxEnemies": 7,
    "ratioMin": 0.3,
    "ratioMax": 0.85,
@@ -62,7 +64,21 @@ window.OVERVIEW_FACTS = {
    "enemyNear": 0.5,
    "enemyFar": 0.8,
    "enemyLeash": 0.78,
-   "enemyDespawn": 1.25
+   "enemyDespawn": 1.25,
+   "hunterMinPop": 120,
+   "hunterMinTime": 90,
+   "hunterRatioMin": 1.35,
+   "hunterRatioMax": 1.55,
+   "hunterChance": 0.3,
+   "hunterAggro": 1.05,
+   "hunterSp": 0.88,
+   "hunterAg": 0.9,
+   "hunterReact": 0.46,
+   "hunterRespawn": 12,
+   "stallHold": 8,
+   "stallAt": 0.98,
+   "stallDrain": 0.012,
+   "stallFloor": 0.85
   },
   "milestoneThresholds": [
    10,
@@ -71,7 +87,7 @@ window.OVERVIEW_FACTS = {
    160,
    230,
    310,
-   400
+   420
   ],
   "pickup": 26,
   "zoom": {
@@ -89,28 +105,28 @@ window.OVERVIEW_FACTS = {
   "gridCell": 46
  },
  "lines": {
-  "index.html": 292,
+  "index.html": 293,
   "css/style.css": 597,
-  "js/config.js": 331,
-  "js/engine.js": 2204,
-  "js/ui.js": 897,
-  "js/save.js": 102,
+  "js/config.js": 375,
+  "js/engine.js": 2395,
+  "js/ui.js": 920,
+  "js/save.js": 103,
   "js/audio.js": 53,
   "server.js": 126,
-  "test/dom.test.js": 1086,
+  "test/dom.test.js": 1335,
   "scripts/start.sh": 56
  },
  "test": {
   "sections": 18,
-  "asserts": 209,
-  "checks": 51,
-  "lines": 1086
+  "asserts": 255,
+  "checks": 57,
+  "lines": 1335
  },
  "totals": {
-  "jsLines": 3587,
+  "jsLines": 3846,
   "cssLines": 597,
-  "htmlLines": 292,
-  "testLines": 1086,
+  "htmlLines": 293,
+  "testLines": 1335,
   "docFiles": 5,
   "screens": 9,
   "skinStyles": [
@@ -928,8 +944,8 @@ window.OVERVIEW_FACTS = {
   "13. checkGoal()         判定胜负（无尽 → 里程碑）"
  ],
  "faq": {
-  "questions": 34,
-  "lines": 205
+  "questions": 35,
+  "lines": 215
  },
  "tree": [
   {
@@ -962,29 +978,29 @@ window.OVERVIEW_FACTS = {
      "name": "02-modes.md",
      "path": "docs/02-modes.md",
      "type": "file",
-     "bytes": 14030,
-     "lines": 226
+     "bytes": 16231,
+     "lines": 243
     },
     {
      "name": "03-systems.md",
      "path": "docs/03-systems.md",
      "type": "file",
-     "bytes": 8464,
-     "lines": 177
+     "bytes": 9527,
+     "lines": 179
     },
     {
      "name": "04-development.md",
      "path": "docs/04-development.md",
      "type": "file",
-     "bytes": 24803,
+     "bytes": 25190,
      "lines": 474
     },
     {
      "name": "05-controls-and-layout.md",
      "path": "docs/05-controls-and-layout.md",
      "type": "file",
-     "bytes": 17129,
-     "lines": 304
+     "bytes": 17507,
+     "lines": 309
     },
     {
      "name": "architecture.svg",
@@ -1004,7 +1020,7 @@ window.OVERVIEW_FACTS = {
      "name": "content-scale.svg",
      "path": "docs/content-scale.svg",
      "type": "file",
-     "bytes": 6533,
+     "bytes": 6617,
      "lines": 66
     }
    ]
@@ -1025,29 +1041,29 @@ window.OVERVIEW_FACTS = {
      "name": "config.js",
      "path": "js/config.js",
      "type": "file",
-     "bytes": 19486,
-     "lines": 331
+     "bytes": 23286,
+     "lines": 375
     },
     {
      "name": "engine.js",
      "path": "js/engine.js",
      "type": "file",
-     "bytes": 84640,
-     "lines": 2204
+     "bytes": 95790,
+     "lines": 2395
     },
     {
      "name": "save.js",
      "path": "js/save.js",
      "type": "file",
-     "bytes": 3092,
-     "lines": 102
+     "bytes": 3232,
+     "lines": 103
     },
     {
      "name": "ui.js",
      "path": "js/ui.js",
      "type": "file",
-     "bytes": 34368,
-     "lines": 897
+     "bytes": 35495,
+     "lines": 920
     }
    ]
   },
@@ -1081,8 +1097,8 @@ window.OVERVIEW_FACTS = {
      "name": "index.html",
      "path": "project_overview/index.html",
      "type": "file",
-     "bytes": 36887,
-     "lines": 567
+     "bytes": 37315,
+     "lines": 571
     },
     {
      "name": "script.js",
@@ -1128,15 +1144,15 @@ window.OVERVIEW_FACTS = {
        "name": "generate_content_scale_svg.mjs",
        "path": "scripts/visualization/generate_content_scale_svg.mjs",
        "type": "file",
-       "bytes": 5719,
+       "bytes": 5803,
        "lines": 90
       },
       {
        "name": "generate_overview_facts.mjs",
        "path": "scripts/visualization/generate_overview_facts.mjs",
        "type": "file",
-       "bytes": 8309,
-       "lines": 185
+       "bytes": 8436,
+       "lines": 186
       },
       {
        "name": "lib_load_facts.mjs",
@@ -1165,8 +1181,8 @@ window.OVERVIEW_FACTS = {
      "name": "dom.test.js",
      "path": "test/dom.test.js",
      "type": "file",
-     "bytes": 64763,
-     "lines": 1086
+     "bytes": 82064,
+     "lines": 1335
     }
    ]
   },
@@ -1216,8 +1232,8 @@ window.OVERVIEW_FACTS = {
    "name": "CHANGELOG.md",
    "path": "CHANGELOG.md",
    "type": "file",
-   "bytes": 25279,
-   "lines": 308
+   "bytes": 29587,
+   "lines": 357
   },
   {
    "name": "CODE_OF_CONDUCT.md",
@@ -1237,15 +1253,15 @@ window.OVERVIEW_FACTS = {
    "name": "FAQ.md",
    "path": "FAQ.md",
    "type": "file",
-   "bytes": 13952,
-   "lines": 205
+   "bytes": 14937,
+   "lines": 215
   },
   {
    "name": "index.html",
    "path": "index.html",
    "type": "file",
-   "bytes": 14271,
-   "lines": 292
+   "bytes": 14627,
+   "lines": 293
   },
   {
    "name": "LICENSE",
@@ -1279,7 +1295,7 @@ window.OVERVIEW_FACTS = {
    "name": "README.md",
    "path": "README.md",
    "type": "file",
-   "bytes": 12640,
+   "bytes": 12768,
    "lines": 217
   },
   {

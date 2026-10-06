@@ -211,6 +211,9 @@
       this.texts = [];
       this.contacts = [];
       this.shake = 0;
+      this.shakeOn = opts.shake !== false;   // 震屏开关（主菜单「震屏」，对局中也可切换）
+      this.shakeLast = {};                   // 同类大事件的节流时间戳
+      this.hurtFlash = 0;                    // 我方被大口吞食时的边缘红闪（代替抖动）
       this.pairTimers = new Map();
       this.decor = [];
       this.spawnAcc = 0;
@@ -223,6 +226,11 @@
       this.endlessAcc = 0;
       this.milestones = 0;
       this.milestonePrev = 0;              // 上一个已达成的里程碑人数（算下一段进度条用）
+      this.milestoneCrossed = 0;           // 本次弹窗合并了几段（一口吞掉整支军队时会 > 1）
+      this.stallTime = 0;                  // 长时间贴着硬上限的累计时长（软上限回落用）
+      this.stallDraining = false;           // 是否已进入「臃肿掉队」流程
+      this.stallDebt = 0;                   // 掉队小数累加器（与帧率无关地按每秒比例流失）
+      this.hunterCd = 0;                    // 猎手刷新冷却：被吞掉后隔一段才允许再刷
       this.nextMilestone = (this.endless && this.level.goal.type === 'endless')
         ? (this.level.goal.step || ENDLESS.milestoneFirst) : 0;
 
@@ -836,6 +844,7 @@
       if (this.endless) {
         this.endlessAcc += dt;
         if (this.endlessAcc >= 1) { this.endlessAcc -= 1; this.endlessRamp(); }
+        this.updateStall(dt);                  // 臃肿掉队：顶死上限也不会一直肥到结局
       }
 
       this.hudAcc += dt;
@@ -940,6 +949,8 @@
         p.target.y = p.cy;
         this.updateFormation(p, dt, p.speedMul || 1);
       }
+      // 红闪也要继续衰减：否则弹窗那一两秒里红边会冻在屏幕上
+      if (this.hurtFlash > 0) this.hurtFlash = Math.max(0, this.hurtFlash - dt * 1.6);
       this.updateParticles(dt);
       this.updateCamera(dt);
     }
@@ -1147,7 +1158,9 @@
         if (best && best.L && best.L.alive) {
           const owner = best.L;
           // 敌军达到人数上限后不再收编中立小人
-          if (!owner.isPlayer && owner.count >= this.aiCap) continue;
+          // （猎手例外：它的人数做到 1.35~1.55 倍，本来就在 aiCap 之上，
+          //   不挖这个口子它根本长不到能够捕食你的规模，这个机制就空转了）
+          if (!owner.isPlayer && !owner.hunter && owner.count >= this.aiCap) continue;
           const nu = owner.addUnit(N.x, N.y);
           if (nu) nu.flash = 0.35;
           this.neutrals.splice(i, 1);
@@ -1210,13 +1223,34 @@
           const cap = Math.max(1, Math.round(CFG.eat.batchMax * Math.max(1, rate)));
           const batch = Math.min(cap, this.engulfedCount(small, big));
           this.absorbBatch(small, big, batch, d);
-
-          if (big.isPlayer || small.isPlayer) {
-            const g = Math.max(1, batch);
-            this.shake = Math.min(9, this.shake + (big.isPlayer ? 1.2 + g * 0.4 : 2.6 + g * 0.6));
-          }
         }
       }
+    }
+
+    /* ===== 屏幕反馈：抖动只留给「离散的大事件」 =====
+       旧版每拍吞噬都加抖（批量越大抖得越狠），七支军团混战时几乎常驻震动 ——
+       规模变大不会让它变好，只会让事件更密。现在：
+       · 按拍吞噬不抖，改用接触点涟漪 + 现有粒子；
+       · 只有「吞灭一整支军团」/「我方一次被吞得比较多」/「我方被灭」才抖；
+       · 幅度按我方规模反向衰减（人越多、单次越轻），同类事件 0.35s 内只算一次。 */
+    shakeCap() {
+      const pop = this.player ? this.player.count : 0;
+      return clamp(7 - pop / 260, 2.4, 7);
+    }
+
+    addShake(amount, kind) {
+      if (!this.shakeOn) { this.shake = 0; return; }
+      const now = this.time;
+      const last = this.shakeLast[kind];
+      if (last !== undefined && now - last < 0.35) return;   // 同类抖动节流
+      this.shakeLast[kind] = now;
+      this.shake = Math.min(this.shakeCap(), this.shake + amount);
+    }
+
+    /* 主菜单「震屏」开关实时生效：关掉时把当前正在跳的那一下一起抹掉 */
+    setShake(on) {
+      this.shakeOn = !!on;
+      if (!this.shakeOn) this.shake = 0;
     }
 
     /* 输家落在赢家圆盘内的单位数（= 被「覆盖」的那部分，决定这一拍能同批吞几个） */
@@ -1234,6 +1268,7 @@
     /* 同批吸收：一批内部只报一次音效 / 飘字，避免一拍刷出十声“吃” */
     absorbBatch(loser, winner, k, contactDist) {
       const n = Math.max(1, k | 0);
+      const before = loser.count;
       let done = 0;
       for (let i = 0; i < n; i++) {
         if (loser.count === 0) break;
@@ -1242,8 +1277,15 @@
       }
       if (done <= 1 || !loser.alive) return done;
       const mx = (loser.cx + winner.cx) / 2, my = (loser.cy + winner.cy) / 2;
+      /* 用涟漪代替抖动作替「一批被吸走」的反馈：看得见、但不晕 */
+      this.ring(mx, my, winner.isPlayer ? winner.body : '#ff7d8c');
       if (winner.isPlayer) this.floatText('-' + done, mx, my - 20, '#ffffff', 1.15);
       else if (loser.isPlayer) this.floatText('-' + done, mx, my - 20, '#ff7d8c', 1.2);
+      /* 只有真疼（一次被咬掉 ≥5% 且至少 3 个）才给一下轻抖 + 边缘红闪 */
+      if (loser.isPlayer && done >= Math.max(3, Math.ceil(before * 0.05))) {
+        this.addShake(2.2, 'hurt');
+        this.hurtFlash = 0.55;
+      }
       return done;
     }
 
@@ -1287,8 +1329,13 @@
 
     destroyLegion(L, by) {
       L.alive = false;
-      this.shake = Math.max(this.shake, 10);
-      for (let k = 0; k < 3; k++) this.burst(L.cx, L.cy, L.body, 16, 220);
+      /* 抖动只给「玩家参与的大事件」：旧版无论谁吞谁都 max(shake, 10)，
+         AI 之间互吞也在屏幕中央炸一下，这是后期“抖个不停”的另一半原因 */
+      if (L.isPlayer) this.addShake(7, 'down');
+      else if (by && by.isPlayer) this.addShake(3.4, 'kill');
+      if (L.hunter) this.hunterCd = ENDLESS.hunterRespawn;   // 猎手被吞掉：隔一段再刷，避免「刚杀完又来」
+      const fx = L.isPlayer || (by && by.isPlayer) ? 3 : 1;
+      for (let k = 0; k < fx; k++) this.burst(L.cx, L.cy, L.body, 16, 220);
       this.floatText(L.name + ' 被吞噬！', L.cx, L.cy - 30, '#ffffff', 1.6);
       if (this.hooks.onLegionDown) this.hooks.onLegionDown(L);
       if (L.isPlayer) this.gameOver('我军全军覆没');
@@ -1328,6 +1375,7 @@
     }
 
     updateFx(dt) {
+      if (this.hurtFlash > 0) this.hurtFlash = Math.max(0, this.hurtFlash - dt * 1.6);
       for (const L of this.legions) {
         for (const k in L.fx) {
           if (L.fx[k] > 0) { L.fx[k] -= dt; if (L.fx[k] <= 0) delete L.fx[k]; }
@@ -1352,7 +1400,11 @@
         if (E === L || !E.alive || E.count === 0) continue;
         const d = Math.sqrt(dist2(c.x, c.y, E.cx, E.cy));
         if (E.count > L.count * 1.06 + 1) { if (d < fleeD) { fleeD = d; flee = E; } }
-        else if (E.count * 1.3 < L.count) { if (d < preyD) { preyD = d; prey = E; } }
+        else if (E.count * 1.3 < L.count) {
+          // 猎手眼里只认玩家：否则它会去追更近的普通敌军，「猎手」就名不副实了
+          if (L.hunter && !E.isPlayer) continue;
+          if (d < preyD) { preyD = d; prey = E; }
+        }
       }
 
       const caution = 1.15 - L.ai.ag * 0.45;      // 越好斗越不怕
@@ -1384,7 +1436,7 @@
         const el = Math.hypot(ex, ey) || 1;
         tx = c.x + (ex / el) * 460;
         ty = c.y + (ey / el) * 460;
-      } else if (prey && preyD < 1000 + L.ai.ag * 600) {
+      } else if (prey && preyD < this.hunterAggro(L) + L.ai.ag * 600) {
         tx = prey.cx;
         ty = prey.cy;
       } else {
@@ -1418,6 +1470,15 @@
         L.target.x = clamp(tx, 120, this.world.w - 120);
         L.target.y = clamp(ty, 120, this.world.h - 120);
       }
+    }
+
+    /* 猎手的索敌半径按战场半径给（普通敌军保持原来的固定 1000）——
+       否则战场后期直径五万像素，猎手在场上一圈却根本“看不见”你，
+       它存在的意义（把你的规模打回去）就失效了 */
+    hunterAggro(L) {
+      return (L && L.hunter && this.dynWorld)
+        ? this.dynR * ENDLESS.hunterAggro
+        : 1000;
     }
 
     /* ===== 粒子与文字 ===== */
@@ -1513,11 +1574,29 @@
     /* ===== 无尽模式：里程碑（不停机推进的关键） ===== */
     reachMilestone() {
       if (this.status !== 'playing') return;
-      const reached = this.nextMilestone;
-      this.milestones++;
-      this.milestonePrev = reached;
-      // 下一段的要求水涨船高：+40、+50、+60…直到封顶，前期不至于碰不到、后期不至于动不动弹窗
-      this.nextMilestone = reached + endlessMilestoneStep(this.milestones);
+      const pop = this.player.count;
+      /* 一口吞掉一整支军队可能同时跨过好几段：合并成【一次】弹窗。
+         旧版每帧只能推一段 → 吞一支 200 人的军队要连着弹 2~3 次窗、反复选技能，
+         成长总量并没有变多，只是把打扰拆成了好几次。 */
+      let at = this.nextMilestone, prevAt = this.milestonePrev, crossed = 0;
+      do {
+        crossed++;
+        prevAt = at;                          // 这一段已被达到
+        this.milestones++;
+        /* 已领到硬上限那一段：奖励全部解锁，之后不再有里程碑。否则会算出 1800 这种
+           永远够不到的阈值（硬上限 1500 + 臃肿掉队还会把人数压到 1275），
+           玩家在封顶后只剩一个永远不满的进度条 */
+        if (prevAt >= CFG.maxUnits) { at = Infinity; break; }
+        /* 段长按「阈值」而不是当前人数推进：一口吞掉一整支军队时，
+           如果用当前人数算段长，会一口气跳好几段（阈值序列与 endlessMilestoneThresholds 对不上）。
+           吃下大军团确实该一次跨多段，但只弹一次窗、只选一次奖励；
+           最后一段对齐到硬上限，保证「满员」这一次奖励拿得到 */
+        const nx = at + endlessMilestoneStep(this.milestones, at);
+        at = nx > CFG.maxUnits ? CFG.maxUnits : nx;
+      } while (pop >= at && crossed < 40);
+      this.milestonePrev = prevAt;
+      this.milestoneCrossed = crossed;
+      this.nextMilestone = at;
       this.status = 'milestone';            // 冻结对局，但游戏实例继续存活
 
       this.releaseInput();                  // 松手，避免回到画面后还朝旧方向狂奔
@@ -1528,7 +1607,8 @@
 
       const res = this.buildResult(true);
       res.milestone = this.milestones;
-      res.threshold = reached;
+      res.threshold = prevAt;
+      res.crossed = crossed;                // 本次合并了几段（UI 会写明）
       this.pushHud();
       if (this.hooks.onMilestone) this.hooks.onMilestone(res);
     }
@@ -1555,6 +1635,7 @@
       if (this.status !== 'playing' || !this.player.alive) return;
       const p = this.player;
       const pop = Math.max(10, this.stats.peak, p.count);
+      if (this.hunterCd > 0) this.hunterCd -= 1;      // 本函数每秒跑一次，冷却按秒递减
 
       this.aiCap = Math.round(pop * ENDLESS.aiCapRatio + 20);
 
@@ -1574,8 +1655,21 @@
       // 敌军支数随规模上涨
       const want = Math.min(ENDLESS.maxEnemies, 2 + Math.floor(pop / 45));
       let alive = this.legions.filter(L => L.alive && !L.isPlayer);
+
+      /* 猎手军团：场上最多 1 支，人数做到峰值的 1.35~1.55 倍 ——
+         AI 自己就只把「≥ 1.3× 的规模」当猎物，所以不用为猎手改任何战斗逻辑，
+         它是真的会来吞你。这是「规模能被外界打回去」的主解决方式 */
+      if (alive.length < want && !alive.some(L => L.hunter) && this.hunterCd <= 0 &&
+          pop >= ENDLESS.hunterMinPop && this.time >= ENDLESS.hunterMinTime &&
+          !this.stallDraining &&                       // 正在臃肿掉队时不再加压，避免「必死循环」
+          Math.random() < ENDLESS.hunterChance) {
+        const H = this.spawnEndlessEnemy(pop, alive.length, true);
+        if (H) budget -= H.count;
+        alive = this.legions.filter(L => L.alive && !L.isPlayer);
+      }
+
       for (let i = alive.length; i < want && budget > 0; i++) {
-        const A = this.spawnEndlessEnemy(pop);
+        const A = this.spawnEndlessEnemy(pop, i);
         if (A) budget -= A.count;
       }
 
@@ -1583,6 +1677,9 @@
       alive = this.legions.filter(L => L.alive && !L.isPlayer);
       const st = endlessEnemyStats(pop);
       alive.forEach((A, i) => {
+        /* 猎手不在自己脸上长兵：它按出生时的倍率定员，
+           这样你可以通过成长反过来吞掉它（回报很厚），而不是永久被压制 */
+        if (A.hunter) return;
         if (A.ai) {
           A.ai.ag = st.ag;
           A.ai.react = st.react;
@@ -1608,7 +1705,7 @@
       );
     }
 
-    spawnEndlessEnemy(pop) {
+    spawnEndlessEnemy(pop, idx, isHunter) {
       const p = this.player;
       const R = this.dynR;
       const palettes = ENEMY_PALETTES.filter(pl => colorDistance(pl.body, p.body) > 150);
@@ -1619,7 +1716,8 @@
         pal = pool[(Math.random() * pool.length) | 0];
       }
 
-      const idx = used.length;
+      // 序号由调用方给（决定这一支在「弱→强」区间里的位置）；没给就按场上现存数量推
+      const rank = Number.isFinite(idx) ? idx : used.length;
       // 登场距离按战场半径取，保证「在战场内、但不在脸上」
       const near = Math.max(900, R * ENDLESS.enemyNear);
       const far = Math.max(near + 160, R * ENDLESS.enemyFar);
@@ -1633,19 +1731,89 @@
 
       const st = endlessEnemyStats(pop);
       const A = new Legion({
-        name: pal.name, body: pal.body, style: 'plain', x, y,
+        name: isHunter ? '猎手·' + pal.name : pal.name,
+        body: pal.body, style: 'plain', x, y,
         ai: {
-          c: 0, sp: st.sp, ag: st.ag, react: st.react, t: Math.random() * 0.4,
+          c: 0,
+          sp: isHunter ? st.sp * ENDLESS.hunterSp : st.sp,        // 更大但更慢：跑得了
+          ag: isHunter ? ENDLESS.hunterAg : st.ag,                // 很好斗：会主动找你
+          react: isHunter ? ENDLESS.hunterReact : st.react,
+          t: Math.random() * 0.4,
           spin: Math.random() < 0.5 ? -1 : 1,
         },
       });
+      A.hunter = !!isHunter;
       A.target = { x, y };
       this.legions.push(A);
 
-      const target = endlessEnemyTarget(pop, this.time, idx, Math.max(1, idx + 1));
-      this.spawnUnitsCircle(A, Math.max(2, Math.round(target * 0.7)), x, y, 60);
-      this.floatText(pal.name + ' 来袭！', x, y - 46, pal.body, 1.4);
+      /* 猎手按【当前人数】定规模，而不是峰值：否则玩家被臃肿掉队压到 1275 时，
+         猎手仍按掉队前的峰值 ×1.35 生成（再被硬上限截到 1500），形成必死循环 */
+      const target = A.hunter ? endlessHunterTarget(Math.max(10, p.count))
+        : endlessEnemyTarget(pop, this.time, rank, Math.max(1, rank + 1));
+      // 猎手登场就要真的是猎手：出生即 0.85× 目标（≈ 我方 1.2~1.3 倍），再自己收编到满员
+      const born = Math.round(target * (A.hunter ? 0.85 : 0.7));
+      this.spawnUnitsCircle(A, Math.max(2, born), x, y, 60);
+      if (A.hunter) {
+        this.ring(x, y, '#ff4d6d');
+        this.floatText('猎手军团来袭！', x, y - 52, '#ff4d6d', 1.7);
+        this.addShake(1.6, 'hunter');
+      } else {
+        this.floatText(pal.name + ' 来袭！', x, y - 46, pal.body, 1.4);
+      }
       return A;
+    }
+
+    /* 一个单位离队，变回可被任何人收编的中立小人（臃肿掉队专用，不凭空消失） */
+    drainOne(L) {
+      const u = L.removeUnitAt(L.units.length - 1);      // 从队尾（最外圈）开始掉队
+      if (!u) return false;
+      /* 掉队的人必须落地（变回中立小人），所以这里不卡 CFG.neutralMax：
+         短暂超出中立上限是允许的，下一次 spawnNeutral / streamWorld 会自然收敛 */
+      this.neutrals.push({
+        x: u.x, y: u.y, vx: rnd(-20, 20), vy: rnd(-20, 20),
+        ph: Math.random() * TAU, dir: Math.random() * TAU, t: rnd(0.6, 2),
+      });
+      this.burst(u.x, u.y, L.body, 4, 60);
+      return true;
+    }
+
+    /* 软上限回落：长时间顶死在 `CFG.maxUnits` 上，「上限」就只是一个无聊的数字 ——
+       改成臃肿到一定程度就开始掉队（回落到地板值就停手），既不会无限肥下去，
+       也不靠提高硬上限冒帧率风险。单位没消失，只是变回中立小人。 */
+    updateStall(dt) {
+      if (!this.endless) return;
+      const p = this.player;
+      if (!p || !p.alive) return;
+      const cap = CFG.maxUnits;
+      const at = cap * ENDLESS.stallAt;
+      const floor = Math.round(cap * ENDLESS.stallFloor);
+
+      if (this.stallDraining) {
+        // 已在掉队：削到地板才收手并复位（不能因为人数刚跌回贴顶线以下就停）
+        if (p.count <= floor) { this.stallDraining = false; this.stallTime = 0; this.stallDebt = 0; return; }
+        this.stallDrainStep(p, dt, floor);
+        return;
+      }
+
+      // 尚未掉队：只有持续贴着硬上限才计时
+      if (p.count < at) { this.stallTime = 0; return; }
+      this.stallTime += dt;
+      if (this.stallTime >= ENDLESS.stallHold) {
+        this.stallDraining = true;
+        this.stallDebt = 0;
+        this.stallDrainStep(p, dt, floor);
+      }
+    }
+
+    /* 每秒流失 stallDrain 比例（小数累加器，与帧率/步长无关），从队尾开始掉 */
+    stallDrainStep(p, dt, floor) {
+      this.stallDebt = (this.stallDebt || 0) + p.count * ENDLESS.stallDrain * dt;
+      const n = Math.floor(this.stallDebt);
+      if (n <= 0) return;
+      this.stallDebt -= n;
+      let dropped = 0;
+      for (let i = 0; i < n && p.count > floor; i++) { if (this.drainOne(p)) dropped++; }
+      if (dropped > 0) this.floatText('军团太臃肿：开始掉队', p.cx, p.cy - p.radius - 16, '#ffd93d', 1.2);
     }
 
     buildResult(isWin) {
@@ -1751,10 +1919,16 @@
       const g = L.goal;
       let progress = 0, goalText = '';
       if (g.type === 'endless') {
-        // 进度条是「上一段里程碑 → 下一段」之间，段长随时变，所以用两个阈值相减
-        const span = Math.max(1, this.nextMilestone - this.milestonePrev);
-        progress = clamp((p.count - this.milestonePrev) / span, 0, 1);
-        goalText = '下一里程碑：' + this.nextMilestone + ' 人（本段 +' + span + '）';
+        if (!isFinite(this.nextMilestone)) {
+          // 奖励全部领完（阈值已封顶在硬上限）：进度条走满，明确告诉玩家没有下一段了
+          progress = 1;
+          goalText = '奖励已全部解锁 · 军团已达 ' + CFG.maxUnits + ' 人上限';
+        } else {
+          // 进度条是「上一段里程碑 → 下一段」之间，段长随时变，所以用两个阈值相减
+          const span = Math.max(1, this.nextMilestone - this.milestonePrev);
+          progress = clamp((p.count - this.milestonePrev) / span, 0, 1);
+          goalText = '下一里程碑：' + this.nextMilestone + ' 人（本段 +' + span + '）';
+        }
       } else if (g.type === 'reach') {
         progress = clamp(p.count / g.val, 0, 1);
         goalText = '目标：军团达到 ' + g.val + ' 人';
@@ -1828,6 +2002,7 @@
       ctx.restore();
 
       this.drawDangerVignette(ctx);
+      this.drawHurtVignette(ctx);
       this.drawEnemyFinder(ctx);
       this.drawJoystick(ctx);
       this.drawMiniMap();
@@ -2165,6 +2340,22 @@
       g.addColorStop(1, 'rgba(255,40,60,' + (0.42 * d).toFixed(3) + ')');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, this.vw, this.vh);
+    }
+
+    /* 被大口吞食的反馈：边缘红闪一下（比抖动不晕，而且不会被“事件密度”叠加成常驻震动） */
+    drawHurtVignette(ctx) {
+      const f = this.hurtFlash;
+      if (f <= 0.01) return;
+      const a = Math.min(0.5, f) * (f / 0.55);
+      const g = ctx.createRadialGradient(this.vw / 2, this.vh / 2, Math.min(this.vw, this.vh) * 0.20,
+        this.vw / 2, this.vh / 2, Math.max(this.vw, this.vh) * 0.58);
+      g.addColorStop(0, 'rgba(255,60,80,0)');
+      g.addColorStop(1, 'rgba(255,60,80,' + a.toFixed(3) + ')');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, this.vw, this.vh);
+      // 顶部一条亮边：让红闪有个「从外往里压」的方向感
+      ctx.fillStyle = 'rgba(255,90,110,' + (a * 1.6).toFixed(3) + ')';
+      ctx.fillRect(0, 0, this.vw, 3);
     }
 
     drawMiniMap() {

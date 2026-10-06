@@ -158,6 +158,27 @@ const UI = {
       });
       applyGlide();
     }
+
+    // 震屏：只控制「大事件」那一下抖动（吞中立小人、按拍吞噬本来就不抖，改涟漪/红闪）
+    const shake = this.$('btn-shake');
+    if (shake) {
+      const applyShake = () => {
+        const on = Save.data.settings.shake !== false;
+        shake.textContent = on ? '震屏：开' : '震屏：关';
+        if (this.game) this.game.setShake(on);
+      };
+      shake.addEventListener('click', () => {
+        SFX.click();
+        Save.data.settings.shake = !(Save.data.settings.shake !== false);
+        save();
+        applyShake();
+        const on2 = Save.data.settings.shake !== false;
+        this.toast(on2
+          ? '震屏：只会在「吞掉整支军队 / 被大口吞食」时抖一下，规模越大抖得越轻'
+          : '震屏已关：大事件改用涟漪与边缘红闪提示，画面不再抖动', 2600);
+      });
+      applyShake();
+    }
   },
 
   /* 当前是否触屏设备 */
@@ -220,10 +241,10 @@ const UI = {
     const d = this.$('prep-goal');
     if (d) {
       d.textContent = this.pendingMode === 'endless'
-        ? ('没有「层」也没有终点：人数只增不减，第一个里程碑只要 ' + ENDLESS.milestoneFirst +
+        ? ('没有「层」也没有终点：人数不会重置，第一个里程碑只要 ' + ENDLESS.milestoneFirst +
           ' 人，之后每一段要求的增量会一路涨上去（+' + ENDLESS.milestoneStepBase + '、+' +
           (ENDLESS.milestoneStepBase + ENDLESS.milestoneStepGrowth) + '、+' +
-          (ENDLESS.milestoneStepBase + ENDLESS.milestoneStepGrowth * 2) + '…）；达成一次弹一次三选一，选完接着打，直到被打光')
+          (ENDLESS.milestoneStepBase + ENDLESS.milestoneStepGrowth * 2) + '…）；达成一次弹一次三选一（一口吞掉大军团也只弹一次），选完接着打，直到被打光')
         : (lv.goal.type === 'reach'
           ? '过关目标：军团达到 ' + lv.goal.val + ' 人'
           : '过关目标：消灭全部 ' + lv.enemies.length + ' 支敌军');
@@ -377,6 +398,7 @@ const UI = {
           controlMode: Save.data.settings.controlMode || 'auto',
           glide: Save.data.settings.glide !== false,
           anchorStick: Save.data.settings.anchorStick !== false,
+          shake: Save.data.settings.shake !== false,
           hooks: {
             onHud(d) { self.onHud(d); },
             onWin(r) { self.onWin(r); },
@@ -525,9 +547,10 @@ const UI = {
 
     this.$('ms-threshold').textContent = res.threshold + ' 人';
     this.$('ms-title').textContent = '里程碑达成：' + res.threshold + ' 人！';
+    const merged = res.crossed > 1 ? '（本次一口气跨了 ' + res.crossed + ' 段，合并为一次奖励）' : '';
     this.$('ms-sub').textContent = '用时 ' + fmtTime(res.time) + ' · 第 ' + res.milestone +
       ' 次奖励 · +' + res.coin + ' 金币 · 当前 ' + res.count + ' 人' +
-      (res.peak > prevBest ? ' · 新纪录！' : '');
+      (res.peak > prevBest ? ' · 新纪录！' : '') + merged;
     this.renderMilestoneRewards();
     const ov = this.$('milestone-overlay');
     if (ov) ov.classList.add('active');

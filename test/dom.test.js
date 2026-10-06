@@ -67,7 +67,8 @@ const harness = `
 (async () => {
   // eval 的作用域与浏览器 <script> 不同，显式取出页面脚本暴露的全局
   const { UI, Save, LEVELS, SKINS, SKILLS, SKILL_LIST, START_OPTIONS, ACHIEVEMENTS,
-          ENDLESS, endlessViewRadius, endlessMilestoneStep, endlessMilestoneThresholds, CFG, MiniGame } = window.__APP__;
+          ENDLESS, endlessViewRadius, endlessMilestoneStep, endlessMilestoneThresholds,
+          endlessHunterTarget, makeEndlessLevel, CFG, MiniGame } = window.__APP__;
   const log = [];
   const ok = (m) => log.push('  ✓ ' + m);
   const assert = (c, m) => { if (!c) throw new Error('断言失败: ' + m); };
@@ -1023,6 +1024,253 @@ const harness = `
     assert(vRe.neutrals.length === vReNeu + 4, '离队的援军应变回中立小人（+' + (vRe.neutrals.length - vReNeu) + '）');
     ok('技能 6 个核准：急速集结/临时增援/诱捕/狂暴吞噬/时间迟缓/坚壁 的范围与秒数均真实生效');
 
+    /* ---- 16. 反馈与规模：抖动只在大事件 · 里程碑合并弹窗 · 猎手能真打回去 · 臃肿掉队 ---- */
+
+    // (a) 按拍吞食不再抖：吞中立小人、每拍咬对手一口都不应产生屏幕抖动
+    const vFb = mkGame({});
+    vfClean.push(vFb);
+    const vFbN = { x: vFb.player.cx, y: vFb.player.cy, vx: 0, vy: 0, ph: 0, dir: 0, t: 9 };
+    vFb.neutrals.length = 0;
+    vFb.neutrals.push(vFbN);
+    vFb.buildUnitGrid();
+    vFb.updateNeutrals(0.02);
+    assert(vFb.shake === 0, '收编中立小人不应引起抖动，实际 shake=' + vFb.shake);
+    const vFbFoe = vFb.legions.filter(L => !L.isPlayer)[0];
+    vFbFoe.ai = null; vFbFoe.cx = vFb.player.cx + 20; vFbFoe.cy = vFb.player.cy;
+    while (vFb.player.count < vFbFoe.count + 8) vFb.player.addUnit(vFb.player.cx, vFb.player.cy);
+    for (let i = 0; i < 40; i++) vFb.updateCombat(0.02);
+    assert(vFb.stats.eaten > 0, '本项验证需要真的咬到几口（验证构造失败）');
+    assert(vFb.shake === 0, '每拍吞噬不应叠抖（旧版「批量×0.4」每拍都加，人多时事件更密 → 常驻震动），实际 shake=' + vFb.shake.toFixed(2));
+    // 一批部分吞食（输家不死）：反馈应是接触点涟漪，而不是抖屏
+    const vRip = mkGame({});
+    vfClean.push(vRip);
+    const rFoe = vRip.legions.filter(L => !L.isPlayer)[0];
+    rFoe.ai = null; rFoe.cx = vRip.player.cx + 18; rFoe.cy = vRip.player.cy;
+    while (rFoe.count < 40) rFoe.addUnit(rFoe.cx, rFoe.cy);
+    while (vRip.player.count < 60) vRip.player.addUnit(vRip.player.cx, vRip.player.cy);
+    vRip.particles.length = 0;
+    const rC0 = rFoe.count;
+    vRip.absorbBatch(rFoe, vRip.player, 5, 18);
+    assert(rFoe.count === rC0 - 5 && rFoe.alive, '一批应削掉 5 个且输家存活，实际 ' + rFoe.count + ' 人（存活 ' + rFoe.alive + '）');
+    assert(vRip.particles.filter(p => p.ring).length > 0, '部分吞食反馈应改用涟漪，实际涟漪数 ' + vRip.particles.filter(p => p.ring).length);
+    assert(vRip.shake === 0, '部分吞食不应抖屏，实际 shake=' + vRip.shake);
+
+    // (b) 吞掉整支军团才抖，而且同类事件 0.35s 内只计一次
+    const vKill = vFb.absorbBatch(vFbFoe, vFb.player, vFbFoe.count, 20);
+    assert(vKill > 0 && !vFbFoe.alive, '应一口吞掉整支敌军（实际吞 ' + vKill + ' 个，存活 ' + vFbFoe.alive + '）');
+    const vShakeKill = vFb.shake;
+    assert(vShakeKill > 0, '吞掉整支军团应该抖一下，实际 shake=' + vShakeKill);
+    vFb.addShake(7, 'kill');
+    assert(vFb.shake === vShakeKill, '同一时间窗口内同类大事件不应叠抖，实际 ' + vShakeKill + ' → ' + vFb.shake);
+
+    // (c) 规模越大单次越轻：振幅上限按我方人数反向衰减
+    vFb.player.clearUnits();
+    while (vFb.player.count < 900) vFb.player.addUnit(vFb.player.cx, vFb.player.cy);
+    const vCapBig = vFb.shakeCap();
+    vFb.player.clearUnits();
+    for (let i = 0; i < 6; i++) vFb.player.addUnit(vFb.player.cx, vFb.player.cy);
+    assert(vCapBig < vFb.shakeCap(), '后期振幅上限应比前期更轻（' + vFb.shakeCap().toFixed(1) + ' → ' + vCapBig.toFixed(1) + '）');
+
+    // (d) 「震屏：关」完全静屏（主菜单开关走 setShake），但红闪反馈仍在
+    const vOff = mkGame({});
+    vfClean.push(vOff);
+    vOff.setShake(false);
+    vOff.addShake(7, 'down');
+    assert(vOff.shake === 0, '关掉震屏后不应有任何抖动，实际 shake=' + vOff.shake);
+    vOff.setShake(true);
+    vOff.addShake(7, 'down');
+    assert(vOff.shake > 0, '实时打开震屏后应立刻生效，实际 shake=' + vOff.shake);
+    vOff.setShake(false);
+    assert(vOff.shake === 0, '实时关闭震屏应把当前正在跳的这一下一起抹掉，实际 shake=' + vOff.shake);
+    // 被大口吞食：不靠抖动也能看见（边缘红闪）
+    const vHurt = mkGame({});
+    vfClean.push(vHurt);
+    while (vHurt.player.count < 20) vHurt.player.addUnit(vHurt.player.cx, vHurt.player.cy);
+    const vHurtFoe = vHurt.legions.filter(L => !L.isPlayer)[0];
+    vHurtFoe.ai = null; vHurtFoe.cx = vHurt.player.cx + 20; vHurtFoe.cy = vHurt.player.cy;
+    while (vHurtFoe.count < vHurt.player.count * 4) vHurtFoe.addUnit(vHurtFoe.cx, vHurtFoe.cy);
+    vHurt.hurtFlash = 0;
+    // 一批咬掉 5 个（≥3 且 ≥我方5%），但我方不死（若全部吞光会走“全覆”而非“被咬疼”）
+    vHurt.absorbBatch(vHurt.player, vHurtFoe, 5, 20);
+    assert(vHurt.player.alive && vHurt.player.count < 20, '本项需要我方被咬掉一批但未全覆，实际 ' + vHurt.player.count + ' 人（存活 ' + vHurt.player.alive + '）');
+    assert(vHurt.hurtFlash > 0, '被大口吞食应有边缘红闪，实际 hurtFlash=' + vHurt.hurtFlash);
+    const vHurt0 = vHurt.hurtFlash;
+    for (let i = 0; i < 20; i++) vHurt.updateFx(0.02);
+    assert(vHurt.hurtFlash < vHurt0, '红闪应自己衰减（' + vHurt0.toFixed(2) + ' → ' + vHurt.hurtFlash.toFixed(2) + '）');
+    ok('屏幕反馈：吞食不抖（改涟漪）· 只有大事件抖 · 规模越大抖得越轻 · 同类事件节流 · 可开关 · 被吞有红闪');
+
+    // (e) 里程碑：一口吞掉大军团可以跨很多段，但只弹一次窗，而且不会因此连弹
+    const mkEnd = (run) => new MiniGame({
+      canvas: $('game-canvas'), minimap: $('minimap'),
+      level: makeEndlessLevel(), levelIndex: LEVELS.length - 1,
+      run: Object.assign({ mode: 'endless', skillId: 'rush', startCount: 3, buffs: {} }, run || {}),
+      hooks: vfHooks,
+    });
+    const vMs = mkEnd({});
+    vfClean.push(vMs);
+    const vMsCurve = endlessMilestoneThresholds(5);   // 设计曲线：[10, 50, 100, 160, 230]
+    assert(vMsCurve.join(',') === '10,50,100,160,230', '前期设计曲线应为 10→50→100→160→230，实际 ' + vMsCurve.join(' → '));
+
+    // 一口从 3 人吞到 100 人（跨过 10/50/100 三段）→ 只弹一次窗，但三段全部计入
+    while (vMs.player.count < 100) vMs.player.addUnit(vMs.player.cx, vMs.player.cy);
+    vMs.stats.peak = vMs.player.count;
+    vMs.reachMilestone();
+    assert(vMs.milestones === 3, '吞到 100 人应一次达到 3 个里程碑，实际 ' + vMs.milestones);
+    assert(vMs.milestoneCrossed === 3, '一口跨多段应合并为一次弹窗（本例合并 3 段），实际合并 ' + vMs.milestoneCrossed + ' 段');
+    assert(vMs.milestonePrev === 100 && vMs.nextMilestone === 160,
+      '合并后阈值应落在设计曲线上（已达 100 → 下一段 160），实际 ' + vMs.milestonePrev + ' → ' + vMs.nextMilestone);
+
+    // 段长必须按「阈值」推进，而不是按“刚吞到的人数”：否则吞一大口会把下一段抬得虚高
+    vMs.status = 'playing';
+    vMs.milestones = 0;
+    vMs.nextMilestone = 50; vMs.milestonePrev = 10;   // 人数仍为 100
+    vMs.reachMilestone();
+    assert(vMs.milestoneCrossed === 2, '从 50 阈值吞到 100 人应跨过 50/90 两段，实际 ' + vMs.milestoneCrossed);
+    // 第二段基于阈值 90 计算（step=50 → 140）；若错按“当前 100 人”则会算到 150
+    assert(vMs.nextMilestone === 140, '段长应基于阈值(90)而非当前人数(100)推进，期望 140，实际 ' + vMs.nextMilestone);
+    ok('里程碑合并弹窗：吞到 100 人跨 3 段只弹 1 次（已达 ' + vMs.milestonePrev + ' → 下一段 ' + vMs.nextMilestone +
+       '），段长按阈值推进不被“刚吞一大口”抬高，前期曲线 ' + vMsCurve.join(' → ') + ' 不变');
+
+    // (e2) 奖励池有终点：阈值封顶在硬上限，领完即明确告知（不留“永远够不到的 1800”）
+    const vCapG = mkEnd({});
+    vfClean.push(vCapG);
+    while (vCapG.player.count < CFG.maxUnits) vCapG.player.addUnit(vCapG.player.cx, vCapG.player.cy);
+    vCapG.stats.peak = vCapG.player.count;
+    vCapG.nextMilestone = CFG.maxUnits; vCapG.milestonePrev = 0;
+    vCapG.reachMilestone();
+    assert(vCapG.nextMilestone === Infinity,
+      '领到硬上限那一段后不应再排下一段（否则会算出一个永远够不到的阈值），实际 ' + vCapG.nextMilestone);
+    vCapG.status = 'playing';
+    vCapG.checkGoal();
+    assert(vCapG.status === 'playing', '奖励全部领完后不应再弹窗，实际 status=' + vCapG.status);
+    const vCurveFull = endlessMilestoneThresholds(40);   // 传 40 段，实际应在上限处自然收口
+    assert(vCurveFull.every(v => v <= CFG.maxUnits),
+      '阈值序列不得超出硬上限，实际最大 ' + Math.max.apply(null, vCurveFull));
+    assert(vCurveFull[vCurveFull.length - 1] === CFG.maxUnits,
+      '阈值序列最后一段应正好落在硬上限 ' + CFG.maxUnits + '，实际 ' + vCurveFull[vCurveFull.length - 1]);
+    ok('奖励池有终点：阈值封顶在 ' + CFG.maxUnits + '（共 ' + vCurveFull.length +
+       ' 段，尾段 ' + vCurveFull[vCurveFull.length - 2] + ' → ' + CFG.maxUnits + '）· 领完不再弹窗，HUD 改说「奖励已全部解锁」');
+
+    // (f) 猎手军团：真的超过 AI 自己的捕食线，而且不会被 aiCap 卡死
+    const vH = mkEnd({});
+    vfClean.push(vH);
+    vH.time = ENDLESS.hunterMinTime + 1;
+    while (vH.player.count < ENDLESS.hunterMinPop + 80) vH.player.addUnit(vH.player.cx, vH.player.cy);
+    vH.stats.peak = vH.player.count;
+    const vHPop = vH.player.count;
+    const vHunter = vH.spawnEndlessEnemy(vHPop, 0, true);
+    assert(vHunter && vHunter.hunter === true, '猎手应正确标记');
+    const vHTarget = endlessHunterTarget(vHPop);
+    assert(vHTarget > vHPop * 1.3, '猎手人数必须跨过 AI 的 1.3× 捕食线，实际 ' + vHTarget + ' / 我方 ' + vHPop);
+    assert(vHTarget <= vHPop * ENDLESS.hunterRatioMax + 1, '猎手不应大到大得没法逃，实际 ' + vHTarget);
+    const vNorm = vH.spawnEndlessEnemy(vHPop, 1, false);
+    assert(vHunter.ai.sp < vNorm.ai.sp,
+      '猎手应比同规模普通敌军更慢（才能靠 playerBonus 跑掉），实际 ' + vHunter.ai.sp.toFixed(3) + ' < ' + vNorm.ai.sp.toFixed(3));
+    assert(vH.hunterAggro(vHunter) > 1000, '猎手索敌半径应按战场半径给（普通敌军仍是 1000px），实际 ' + vH.hunterAggro(vHunter).toFixed(0));
+    assert(vH.hunterAggro(vNorm) === 1000, '普通敌军索敌半径不应被改动');
+    // aiCap 豁免：否则猎手永远长不到能捕食的规模（收编按单位位置判定，所以把两方单位都挪到远离玩家处）
+    const mkFoe = (hunterFlag) => {
+      const gg = mkEnd({});
+      vfClean.push(gg);
+      const foe = gg.legions.filter(L => !L.isPlayer)[0];
+      foe.ai = null; foe.hunter = !!hunterFlag; foe.clearUnits();
+      const fx = gg.player.cx + 1200, fy = gg.player.cy;   // 必须在动态战场内（否则中立会被夹回、碰不到该军团）
+      foe.cx = fx; foe.cy = fy;
+      for (let i = 0; i < 3; i++) foe.addUnit(fx, fy);
+      gg.aiCap = 1;                       // 闸门远低于当前 3 人：普通敌军应卡住，猎手应豁免
+      gg.neutrals.length = 0;
+      for (let i = 0; i < 6; i++) gg.neutrals.push({ x: fx + 2, y: fy, vx: 0, vy: 0, ph: 0, dir: 0, t: 9 });
+      gg.buildUnitGrid();
+      gg.updateNeutrals(0.02);
+      return { gg, foe };
+    };
+    const vCapH = mkFoe(true);
+    assert(vCapH.foe.count > 3, '猎手应能突破 aiCap 继续收编（否则机制空转），实际 ' + vCapH.foe.count + ' 人');
+    const vCapN = mkFoe(false);
+    assert(vCapN.foe.count === 3, '普通敌军到 aiCap 后不应再收编（只有猎手豁免），实际 ' + vCapN.foe.count + ' 人');
+    // 前期不刷猎手
+    const vHEarly = mkEnd({});
+    vfClean.push(vHEarly);
+    vHEarly.time = 0;
+    while (vHEarly.player.count > 3) vHEarly.player.removeUnitAt(vHEarly.player.units.length - 1);
+    vHEarly.stats.peak = vHEarly.player.count;
+    let vHEver = false;
+    for (let i = 0; i < 200; i++) {
+      vHEarly.endlessRamp();
+      if (vHEarly.legions.some(L => L.hunter)) { vHEver = true; break; }
+    }
+    assert(!vHEver, '未满 hunterMinTime / hunterMinPop 的前期不应刷猎手');
+    ok('猎手军团：人数 ' + vHTarget + '（我方 ' + vHPop + '，×' + (vHTarget / vHPop).toFixed(2) + '）真的跨过 1.3× 捕食线 · 更慢但索敌覆盖全场 · aiCap 豁免 · 前期不出现');
+
+    // (f2) 猎手只认玩家：不会被更近的普通敌军带偏
+    const vFocus = mkEnd({});
+    vfClean.push(vFocus);
+    const pF = vFocus.player;
+    const hF = vFocus.spawnEndlessEnemy(pF.count, 0, true);
+    const nF = vFocus.spawnEndlessEnemy(pF.count, 1, false);
+    nF.ai = null;
+    // 把普通敌军摆在「猎手 → 玩家」的连线上（离猎手更近，且一定还在战场内）
+    const fdx = pF.cx - hF.cx, fdy = pF.cy - hF.cy, fdl = Math.hypot(fdx, fdy) || 1;
+    nF.cx = hF.cx + (fdx / fdl) * 220; nF.cy = hF.cy + (fdy / fdl) * 220;
+    while (nF.count < Math.max(3, Math.floor(hF.count / 2))) nF.addUnit(nF.cx, nF.cy);
+    hF.ai.t = 0;
+    vFocus.aiThink(hF, 0.02);
+    assert(Math.abs(hF.target.x - pF.cx) < 5 && Math.abs(hF.target.y - pF.cy) < 5,
+      '猎手应无视更近的普通敌军、直奔玩家，实际目标 (' + hF.target.x.toFixed(0) + ',' + hF.target.y.toFixed(0) +
+      ')，玩家在 (' + pF.cx.toFixed(0) + ',' + pF.cy.toFixed(0) + ')');
+
+    // (f3) 猎手规模跟随【当前人数】而非峰值（掉队后 peak 仍很高，按 peak 会生成必死猎手）
+    const vCount = mkEnd({});
+    vfClean.push(vCount);
+    while (vCount.player.count < 200) vCount.player.addUnit(vCount.player.cx, vCount.player.cy);
+    vCount.stats.peak = 800;                                  // 峰值远高于当前人数（模拟掉队之后）
+    const hByCount = vCount.spawnEndlessEnemy(vCount.stats.peak, 0, true);
+    assert(hByCount.count <= vCount.player.count * ENDLESS.hunterRatioMax + 2,
+      '猎手应按当前人数(' + vCount.player.count + ')定规模而不是峰值(' + vCount.stats.peak + ')，实际 ' + hByCount.count);
+
+    // (f4) 猎手被吞掉后有刷新冷却；掉队期间不再加压
+    const vHunterCd = mkEnd({});
+    vfClean.push(vHunterCd);
+    vHunterCd.time = ENDLESS.hunterMinTime + 5;
+    while (vHunterCd.player.count < ENDLESS.hunterMinPop + 60) vHunterCd.player.addUnit(vHunterCd.player.cx, vHunterCd.player.cy);
+    vHunterCd.stats.peak = vHunterCd.player.count;
+    const hCd = vHunterCd.spawnEndlessEnemy(vHunterCd.player.count, 0, true);
+    vHunterCd.destroyLegion(hCd, vHunterCd.player);
+    assert(vHunterCd.hunterCd === ENDLESS.hunterRespawn,
+      '猎手被吞掉应启动 ' + ENDLESS.hunterRespawn + 's 刷新冷却，实际 ' + vHunterCd.hunterCd);
+    for (let i = 0; i < ENDLESS.hunterRespawn - 1; i++) vHunterCd.endlessRamp();
+    assert(!vHunterCd.legions.some(L => L.hunter && L.alive), '冷却期内不应再刷猎手');
+    for (let i = 0; i < 6; i++) vHunterCd.endlessRamp();
+    assert(vHunterCd.hunterCd <= 0, '冷却应随时间递减归零，实际 ' + vHunterCd.hunterCd);
+    // 掉队期间同样禁止刷猎手（被压 + 被猎 = 必死）
+    const vStallH = mkEnd({});
+    vfClean.push(vStallH);
+    vStallH.time = ENDLESS.hunterMinTime + 5;
+    while (vStallH.player.count < ENDLESS.hunterMinPop + 60) vStallH.player.addUnit(vStallH.player.cx, vStallH.player.cy);
+    vStallH.stats.peak = vStallH.player.count;
+    vStallH.stallDraining = true;
+    for (let i = 0; i < 40; i++) vStallH.endlessRamp();
+    assert(!vStallH.legions.some(L => L.hunter && L.alive), '臃肿掉队期间不应再刷猎手（避免双重打击变成必死）');
+    ok('猎手调度：只猎玩家 · 规模跟当前人数（不跟峰值）· 被吞后 ' + ENDLESS.hunterRespawn +
+       's 冷却 · 掉队期间不再加压');
+
+    // (g) 臃肿掉队：顶死硬上限 8 秒后开掉，回到地板就停手（不靠提上限）
+    const vSt = mkEnd({});
+    vfClean.push(vSt);
+    while (vSt.player.count < CFG.maxUnits) vSt.player.addUnit(vSt.player.cx, vSt.player.cy);
+    const vStCap = vSt.player.count, vStNeu = vSt.neutrals.length;
+    assert(vStCap === CFG.maxUnits, '本项验证需要顶死硬上限，实际 ' + vStCap);
+    for (let i = 0; i < 350; i++) vSt.updateStall(0.02);      // 7 秒：未到贴顶时长，不该掉
+    assert(vSt.player.count === vStCap, '贴着上限不满 ' + ENDLESS.stallHold + ' 秒不应掉人，实际剩 ' + vSt.player.count);
+    for (let i = 0; i < 400; i++) vSt.updateStall(0.02);      // 再过 8 秒 → 超过阈值，开始掉队
+    const vStAfter = vSt.player.count;
+    assert(vStAfter < vStCap, '长时间臃肿应开始掉队，实际仍 ' + vStAfter);
+    assert(vSt.neutrals.length > vStNeu, '掉队的人应变回中立小人（不凭空消失），中立 ' + (vSt.neutrals.length - vStNeu) + ' 个回流');
+    for (let i = 0; i < 4000; i++) vSt.updateStall(0.02);
+    const vStFloor = Math.round(CFG.maxUnits * ENDLESS.stallFloor);
+    assert(Math.abs(vSt.player.count - vStFloor) <= 2, '回落到地板（' + vStFloor + '）应停手，实际 ' + vSt.player.count);
+    ok('臃肿掉队：顶死 ' + ENDLESS.stallHold + 's 后每秒 -' + (ENDLESS.stallDrain * 100).toFixed(1) + '%，回落到 ' + vStFloor + ' 人停住（上限仍是 ' + CFG.maxUnits + '，不提上限也不卡帧）');
+
     vfClean.forEach(x => x && x.destroy());
 
     window.__TEST_RESULT__ = { ok: true, log };
@@ -1038,6 +1286,7 @@ const source = SCRIPTS.map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8')).j
     ' SKILL_LIST: SKILL_LIST, START_OPTIONS: START_OPTIONS, ACHIEVEMENTS: ACHIEVEMENTS,' +
     ' ENDLESS: ENDLESS, endlessViewRadius: endlessViewRadius,' +
     ' endlessMilestoneStep: endlessMilestoneStep, endlessMilestoneThresholds: endlessMilestoneThresholds,' +
+    ' endlessHunterTarget: endlessHunterTarget, makeEndlessLevel: makeEndlessLevel,' +
     ' CFG: CFG, MiniGame: MiniGame };\n';
 
 try {

@@ -33,6 +33,7 @@ function buildTree(dir, rel, depth) {
   const entries = fs
     .readdirSync(path.join(ROOT, dir), { withFileTypes: true })
     .filter((e) => !['.git', 'node_modules'].includes(e.name))
+    .filter((e) => !(e.isDirectory() && e.name.startsWith('.')))   // 隐藏目录（.tmp_* 之类的工作目录）不进树
     .filter((e) => (rel ? rel + '/' + e.name : e.name) !== 'project_overview/facts.js')
     .sort((a, b) => (a.isDirectory() === b.isDirectory() ? a.name.localeCompare(b.name) : a.isDirectory() ? -1 : 1));
   for (const e of entries) {

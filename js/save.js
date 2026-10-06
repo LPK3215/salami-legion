@@ -24,6 +24,7 @@ function defaultSave() {
       controlMode: 'auto',   // 操作方式：auto（自动识别）| joystick（虚拟摇杆）| follow（跟随手指）
       glide: true,           // 惯性而行：松手/松键后沿最后方向继续走（关闭则「松手即停」）
       anchorStick: true,     // 摇杆原点锁定：按下时收进安全区，不再跟着手指爬出屏幕
+      shake: true,           // 震屏：只影响「大事件」的那一下抖动（吞食反馈本身改用涟漪/红闪）
     },
   };
 }
@@ -56,7 +57,7 @@ const Save = {
     out.startOptions = Array.isArray(out.startOptions) ? out.startOptions : [3];
     out.stats = Object.assign(defaultSave().stats, out.stats || {});
     out.settings = Object.assign(
-      { sound: true, controlMode: 'auto', glide: true, anchorStick: true },
+      { sound: true, controlMode: 'auto', glide: true, anchorStick: true, shake: true },
       out.settings || {});
     return out;
   },

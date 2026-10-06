@@ -319,9 +319,13 @@
       <div class="card">
         <h3>无尽模式的生成规则</h3>
         <p>无尽模式<b>没有「层」</b>：只有一份由 <code>makeEndlessLevel()</code> 生成的关卡对象（<code>dynamicWorld: true</code>），
-          全程同一场对局，人数只增不减；达成一个里程碑就暂停一次三选一（首个
-          <code>ENDLESS.milestoneFirst</code> = 10 人，之后每段增量由 <code>endlessMilestoneStep()</code> 逐段上提），
+          全程同一场对局，人数不重置（长时间顶死上限才会触发「臃肿掉队」）；达成一个里程碑就暂停一次三选一（首个
+          <code>ENDLESS.milestoneFirst</code> = 10 人，之后每段增量由 <code>endlessMilestoneStep()</code> 逐段上提，
+          一口吞掉整支军队跨多段也只弹一次窗），
           <code>resumeFromMilestone()</code> 直接回到同一场对局续战。
+          <b>规模不是只能涨</b>：另有 <code>spawnEndlessEnemy(..., true)</code> 刷出的<b>猎手军团</b>
+          （1.35~1.55 倍、主动猎你）与 <code>updateStall()</code> 的<b>臃肿掉队</b>（贴顶 8s 后每秒 −1.2%，
+          落到上限 85% 停手）把你打回去。
           <b>地图是以玩家为中心的动态战场</b>（<code>updateDynamicWorld() + streamWorld()</code>，走到哪生成到哪），
           敌军按<b>人数 + 时间</b>每秒对齐，两者都不按层数。</p>
         <div class="table-wrap">

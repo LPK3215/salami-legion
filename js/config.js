@@ -181,22 +181,26 @@ const LEVELS = [
 ];
 
 /* ---------------- 无尽模式：一次连续对局，没有「层」 ----------------
-   规则：军团人数只增不减（不会重置），每达成一个里程碑弹一次三选一奖励，
-   选完立刻接着打；只有全军覆没才会结束。敌军规模随我方人数与存活时间持续递增。
+   规则：军团人数靠吞噬增长，也会被猎手军团、臃肿掉队打回去；每达成一个里程碑
+   弹一次三选一奖励（一次跨多段也只弹一次），选完立刻接着打；全军覆没才会结束。
+   敌军规模随我方人数与存活时间持续递增。
 
    里程碑不是固定值，而是一路水涨船高：起步只要 10 人就能拿到第一次奖励，
-   之后每一段要求的增量越来越大（+40、+50、+60…），到后期不会动不动就弹窗。
+   之后每一段要求的增量越来越大（+40、+50、+60…，后期改为按人口比例），
+   到后期不会动不动就弹窗。
 
    地图不是固定尺寸的棋盘，而是**以玩家为中心的圆形战场**：
    每帧按 endlessViewRadius() 算出半径，引擎把世界矩形重算成以玩家为圆心、
    边长 2R 的方框，并在框内持续生成 / 回收中立小人与装饰物 ——
    所以战场是「跟着玩家走、随规模变大」的动态地图，没有 3x3 / 4x4 这类写死尺寸。 */
 const ENDLESS = {
-  /* ---- 里程碑：要求随进度递增，不再固定 50 ---- */
+  /* ---- 里程碑：要求逐段上提，并且后期跟得上你的实际增速 ---- */
   milestoneFirst: 10,                      // 首个里程碑：攒到 10 人就给一次三选一
   milestoneStepBase: 40,                   // 第二次起，单段增量从 +40 人开始
-  milestoneStepGrowth: 10,                 // 每达成一次，下一段的增量再 +10
-  milestoneStepMax: 150,                   // 增量封顶：再往后每段最多 +150 人
+  milestoneStepGrowth: 10,                 // 每达成一次，绝对阶梯再 +10
+  milestoneRatio: 0.35,                    // 【关键】段长同时按峰值人口的 35% 取，一口吞掉整支军队也不应该连弹几次
+  milestoneStepRound: 10,                  // 阈值取整到 10 人，HUD 上读起来干净
+  milestoneStepMax: 400,                   // 增量封顶：再往后每段最多 +400 人（旧值 150 在千人规模下太小，吞一支军队就能跨好几段）
   maxEnemies: 7,                     // 场上敌军数量上限
   ratioMin: 0.30,                    // 最弱敌军人数 / 我方人数
   ratioMax: 0.85,                    // 最强敌军人数 / 我方人数（仍略低于我方，保证能吃）
@@ -214,22 +218,54 @@ const ENDLESS = {
   enemyFar: 0.80,                    // 敌军登场距离：外圈
   enemyLeash: 0.78,                  // 敌军逃到这个半径占比后改为绕圈，不再往外跑
   enemyDespawn: 1.25,                // 敌军跑出「半径 × 该系数」视为溃逃，回收后换新
+
+  /* ---- 猎手军团：唯一能真正把你打回去的常规敌军 ----
+     普通敌军始终 ≤ ratioMax(0.85) × 我方，而 AI 只看得到「≥ 1.3× 的猎物」，
+     所以旧版里玩家永远不可能被单支军队吃掉，只能本身躲 -> 规模只会单调上升。
+     猎手故意做到 1.35~1.55 倍，刚好跨过 AI 自己的捕食阈值（不用改判定它就真的会猎你），
+     代价是它更大更慢（spMul < 1），靠 playerBonus 与慌忙减速你是能跑掉的。 */
+  hunterMinPop: 120,                 // 峰值人数到 120 才可能刷猎手（前期不致于被碾）
+  hunterMinTime: 90,                 // 或至少活了 90 秒（两者都不满足时不出现）
+  hunterRatioMin: 1.35,              // 猎手人数 / 峰值人数（下限：刚好超过 AI 的 1.3× 捕食线）
+  hunterRatioMax: 1.55,              // 上限：再大就真的追不上了，不设计那么狠
+  hunterChance: 0.30,                // 每秒判定一次的概率（场上最多只允许 1 支）
+  hunterAggro: 1.05,                 // 索敌半径 / 战场半径（普通敌军只有 1000px，战场后期那个距离上它“看不见你”）
+  hunterSp: 0.88,                    // 猎手速度系数（比正常敌军慢）
+  hunterAg: 0.90,                    // 好斗度：很高，它会主动找你
+  hunterReact: 0.46,
+  hunterRespawn: 12,                 // 猎手被吞掉后至少隔这么多秒才会再刷一支（避免「刚杀完又来」）
+
+  /* ---- 软上限回落：顶死在硬上限也不能一直肥到结局 ---- */
+  stallHold: 8,                      // 连续贴着硬上限 8 秒 → 开始「掉队」
+  stallAt: 0.98,                     // 贴顶判定线（当前人数 ≥ maxUnits × 该系数）
+  stallDrain: 0.012,                 // 每秒流失当前人数的 1.2%（变回中立小人，不凭空消失）
+  stallFloor: 0.85,                  // 回落到 maxUnits × 该系数就停手
 };
 
-/* 里程碑增量：达成第 n 次之后，下一段还要求多多少人（n=0 即首个里程碑） */
-function endlessMilestoneStep(n) {
-  if (n <= 0) return ENDLESS.milestoneFirst;
-  return Math.min(ENDLESS.milestoneStepMax,
-    ENDLESS.milestoneStepBase + (n - 1) * ENDLESS.milestoneStepGrowth);
+/* 里程碑增量：达成第 n 次之后，下一段还要求多多少人（n=0 即首个里程碑）。
+   取「绝对阶梯」与「人口基准的 milestoneRatio 倍」的较大值：
+   前期绝对阶梯主导（10 → 50 → 100 → 160 → 230 → 310，与旧版一致），
+   后期人口一大，固定增量会让“吞一支军队”直接跨两三段、连着弹好几次窗，
+   所以改成按人口比例取段长（封顶 milestoneStepMax）。
+   注意：引擎推进阈值时传的是「阈值」而不是当前人数，两者在“一口吃掉大军团”时差别很大。 */
+function endlessMilestoneStep(n, pop) {
+  const abs = n <= 0 ? ENDLESS.milestoneFirst
+    : Math.min(ENDLESS.milestoneStepMax, ENDLESS.milestoneStepBase + (n - 1) * ENDLESS.milestoneStepGrowth);
+  const p = Math.max(0, pop || 0);
+  const rd = ENDLESS.milestoneStepRound || 1;
+  const prop = Math.round(p * ENDLESS.milestoneRatio / rd) * rd;
+  return Math.max(1, Math.min(ENDLESS.milestoneStepMax, Math.max(abs, prop)));
 }
 
-/* 里程碑阈值序列预览（供文案 / 调试）：10 → 50 → 100 → 160 → 230 … */
+/* 里程碑阈值序列预览：模拟「峰值 = 当前阈值」的真实节奏 → 10 → 50 → 100 → 160 → 230 → 310 → 420 … */
 function endlessMilestoneThresholds(count) {
   const out = [];
   let at = ENDLESS.milestoneFirst;
   for (let i = 0; i < count; i++) {
     out.push(at);
-    at += endlessMilestoneStep(i + 1);
+    if (at >= CFG.maxUnits) break;                       // 阈值封顶在硬上限：不会出现永远够不到的段
+    const nx = at + endlessMilestoneStep(i + 1, at);
+    at = nx > CFG.maxUnits ? CFG.maxUnits : nx;
   }
   return out;
 }
@@ -248,6 +284,14 @@ function endlessEnemyTarget(pop, time, index, total) {
   // 起步阶段轻一点（开局只有 3 人），时间越久底噪越高，逼着玩家不能原地苟
   const creep = 5 + Math.max(0, time) * 0.22;
   return Math.max(4, Math.round(Math.max(creep, Math.max(10, pop) * ratio)));
+}
+
+/* 猎手的目标人数：刚好跨过 AI 自己的「1.3× 才算猎物」线，但不至于大到无法逃离 */
+function endlessHunterTarget(pop, t) {
+  const p = Math.max(10, pop);
+  const span = Math.min(1, Math.max(0, (p - ENDLESS.hunterMinPop) / 600));
+  const ratio = ENDLESS.hunterRatioMin + (ENDLESS.hunterRatioMax - ENDLESS.hunterRatioMin) * span;
+  return Math.max(12, Math.round(p * ratio));
 }
 
 /* 敌军的移动/好斗/反应参数：随我方规模增强，各有上限 */
@@ -282,7 +326,7 @@ function makeEndlessLevel() {
     coins: 30,
     world: { w: R * 2, h: R * 2 },
     enemies: enemies,
-    tip: '人数只增不减：首个里程碑只要 ' + ENDLESS.milestoneFirst + ' 人，之后每一段要求的增量会一路涨上去；敌军会随你的规模越滚越强',
+    tip: '人数不会重置：首个里程碑只要 ' + ENDLESS.milestoneFirst + ' 人，之后每段的增量会一路涨上去；敌军随你的规模越滚越强，还会有「猎手军团」主动来咬你',
   };
 }
 

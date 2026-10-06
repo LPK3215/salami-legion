@@ -79,7 +79,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" wid
 <rect width="${W}" height="${H}" fill="url(#bg3)"/>
 <text x="30" y="46" font-size="24" font-weight="800" fill="url(#ttl3)">内容量级 · v${f.version}</text>
 <text x="30" y="74" font-size="13" fill="${T['txt-dim']}">条长与数字运行时取自 js/config.js 的数组长度；右侧标注即对应的数组名。加内容后重跑 npm run docs:svg 即自动同步</text>
-<text x="30" y="100" font-size="12.5" fill="${T['txt-dim']}">关卡挑战 ${f.content.levels} 关打完即通关 ｜ 无尽挑战没有层也没有终点（人数只增不减，里程碑从 ${f.mechanics.milestoneFirst} 人起逐段上提；地图以玩家为中心动态生成、敌军随规模实时变强）</text>
+<text x="30" y="100" font-size="12.5" fill="${T['txt-dim']}">关卡挑战 ${f.content.levels} 关打完即通关 ｜ 无尽挑战没有层也没有终点（人数不重置，里程碑从 ${f.mechanics.milestoneFirst} 人起逐段上提、跨多段只弹一次；地图以玩家为中心动态生成、敌军随规模实时变强，还有猎手军团主动追杀、顶死上限会臃肿掉队）</text>
 ${p.join('\n')}
 <text x="30" y="${H - 22}" font-size="11.5" fill="${T['txt-dim']}">运行时依赖 ${f.runtimeDeps} 个 ｜ 开发依赖 ${f.devDeps} 个（仅 jsdom，用于端到端测试） ｜ Node ${f.nodeEngines} ｜ 生成于 ${f.generatedAt}</text>
 </svg>

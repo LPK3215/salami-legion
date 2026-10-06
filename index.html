@@ -7,7 +7,7 @@
 <title>蚕食军团 · Salami Legion</title>
 <!-- 静态资源带版本号：改了 css/js 就把 ?v= 一起改掉，
      否则老访客的浏览器会继续用缓存里的旧脚本（GitHub Pages 给静态资源 10 分钟强缓存） -->
-<link rel="stylesheet" href="css/style.css?v=20261006b">
+<link rel="stylesheet" href="css/style.css?v=20261006d">
 </head>
 <body>
 
@@ -37,6 +37,7 @@
         <button class="btn btn-tiny" id="btn-sound">音效：开</button>
         <button class="btn btn-tiny" id="btn-control">操作：自动</button>
         <button class="btn btn-tiny" id="btn-glide">惯性：保持方向</button>
+        <button class="btn btn-tiny" id="btn-shake" title="只影响「吞掉整支军队 / 被大口吞食」这类大事件的屏幕抖动">震屏：开</button>
         <a class="btn btn-tiny" id="btn-about" href="./project_overview/" target="_blank" rel="noopener" title="在新标签页打开项目全景观览">项目介绍</a>
         <button class="btn btn-tiny danger" id="btn-reset">清空存档</button>
       </div>
@@ -220,7 +221,7 @@
       <h3>两种游戏模式</h3>
       <ul>
         <li><b>关卡挑战</b>：主线 13 关，一关一关推进。每关有明确目标（达到指定人数 / 消灭所有敌军），达成即结算并进入三选一奖励，然后下一关。</li>
-        <li><b>无尽挑战</b>：<b>没有层、也没有关卡</b>——一整场连续对局，人数只增不减。第一个里程碑只要 10 人就能拿到三选一，之后<b>每一段要求的增量会一路涨上去</b>（+40、+50、+60…），不会动不动就弹窗。奖励浮层是<b>半透明</b>的，直接浮在战场上，<b>点一张卡就立刻生效并接着打</b>。地图是一块<b>以你为中心、随人数持续变大</b>的动态战场（走到哪生成到哪，没有固定尺寸也没有墙），敌军规模也会跟着你的军团实时变强，直到你被打光。</li>
+        <li><b>无尽挑战</b>：<b>没有层、也没有关卡</b>——一整场连续对局，人数不会重置。第一个里程碑只要 10 人就能拿到三选一，之后<b>每一段要求的增量会一路涨上去</b>，<b>一口吞掉整支军队也只弹一次窗</b>，不会动不动就弹。奖励浮层是<b>半透明</b>的，直接浮在战场上，<b>点一张卡就立刻生效并接着打</b>。地图是一块<b>以你为中心、随人数持续变大</b>的动态战场（走到哪生成到哪，没有固定尺寸也没有墙），敌军规模也会跟着你的军团实时变强，还会刷出<b>主动追杀你的「猎手军团」</b>；要是长时间顶死人数上限，军团还会<b>臃肿掉队</b>——所以没法靠躲着无限滚大，直到你被打光。</li>
         <li>两种模式都是<b>一次挑战 = 先选技能与开局人数</b>，中间靠三选一奖励不断变强；区别是关卡挑战每关人数从头开始，无尽挑战的人数一个都不会重置。</li>
       </ul>
 
@@ -283,10 +284,10 @@
 
 <div id="toast-wrap"></div>
 
-<script src="js/config.js?v=20261006b"></script>
-<script src="js/save.js?v=20261006b"></script>
-<script src="js/audio.js?v=20261006b"></script>
-<script src="js/engine.js?v=20261006b"></script>
-<script src="js/ui.js?v=20261006b"></script>
+<script src="js/config.js?v=20261006d"></script>
+<script src="js/save.js?v=20261006d"></script>
+<script src="js/audio.js?v=20261006d"></script>
+<script src="js/engine.js?v=20261006d"></script>
+<script src="js/ui.js?v=20261006d"></script>
 </body>
 </html>
