@@ -1,8 +1,8 @@
 {
   "name": "salami-legion",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "蚕食军团（Salami Legion）—— 逐个单位吞噬的休闲军团对战游戏（纯前端 Canvas，零运行时依赖）",
+  "description": "蚕食军团（Salami Legion）—— 按拍吞噬、盖住多少同批吞多少的休闲军团对战游戏（纯前端 Canvas，零运行时依赖）",
   "license": "MIT",
   "author": "LPK3215 <17538703215@163.com>",
   "homepage": "https://lpk3215.github.io/salami-legion/",

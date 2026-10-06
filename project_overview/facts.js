@@ -1,15 +1,15 @@
 /* 本文件由 scripts/visualization/generate_overview_facts.mjs 自动生成，请勿手工编辑。
  *    重新生成：node scripts/visualization/generate_overview_facts.mjs  或  npm run overview:data
- *    生成时间：2026-10-04 15:32Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
+ *    生成时间：2026-10-06 06:15Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
  *    js/save.js、package.json、css/style.css、index.html、test/dom.test.js、docs/04-development.md）。 */
 window.OVERVIEW_FACTS = {
  "meta": {
   "project": "蚕食军团",
   "projectEn": "Salami Legion",
   "name": "salami-legion",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "license": "MIT",
-  "description": "蚕食军团（Salami Legion）—— 逐个单位吞噬的休闲军团对战游戏（纯前端 Canvas，零运行时依赖）",
+  "description": "蚕食军团（Salami Legion）—— 按拍吞噬、盖住多少同批吞多少的休闲军团对战游戏（纯前端 Canvas，零运行时依赖）",
   "author": "LPK3215 <17538703215@163.com>",
   "repo": "https://github.com/LPK3215/salami-legion",
   "cloneUrl": "https://github.com/LPK3215/salami-legion.git",
@@ -19,7 +19,7 @@ window.OVERVIEW_FACTS = {
   "runtimeDeps": 0,
   "devDeps": 1,
   "saveKey": "mini_legion_save_v1",
-  "generatedAt": "2026-10-04 15:32Z",
+  "generatedAt": "2026-10-06 06:15Z",
   "generator": "scripts/visualization/generate_overview_facts.mjs"
  },
  "content": {
@@ -34,13 +34,45 @@ window.OVERVIEW_FACTS = {
  "mechanics": {
   "eatInterval": 0.32,
   "eatContact": 0.94,
+  "eatBatchMax": 10,
+  "milestoneFirst": 10,
   "worldW": 3000,
   "worldH": 2200,
   "unitRadius": 8,
   "spacing": 13,
-  "maxUnits": 900,
-  "unitTotalMax": 1800,
+  "maxUnits": 1500,
+  "unitTotalMax": 6000,
   "neutralMax": 460,
+  "endless": {
+   "milestoneFirst": 10,
+   "milestoneStepBase": 40,
+   "milestoneStepGrowth": 10,
+   "milestoneStepMax": 150,
+   "maxEnemies": 7,
+   "ratioMin": 0.3,
+   "ratioMax": 0.85,
+   "aiCapRatio": 0.95,
+   "viewR": 1500,
+   "viewRPerPop": 1.6,
+   "viewRMin": 1400,
+   "viewRMax": 2600,
+   "cullPad": 1.18,
+   "spawnInner": 0.42,
+   "spawnOuter": 0.96,
+   "enemyNear": 0.5,
+   "enemyFar": 0.8,
+   "enemyLeash": 0.78,
+   "enemyDespawn": 1.25
+  },
+  "milestoneThresholds": [
+   10,
+   50,
+   100,
+   160,
+   230,
+   310,
+   400
+  ],
   "pickup": 26,
   "zoom": {
    "min": 0.36,
@@ -57,28 +89,28 @@ window.OVERVIEW_FACTS = {
   "gridCell": 46
  },
  "lines": {
-  "index.html": 269,
-  "css/style.css": 564,
-  "js/config.js": 302,
-  "js/engine.js": 2054,
-  "js/ui.js": 815,
+  "index.html": 284,
+  "css/style.css": 597,
+  "js/config.js": 331,
+  "js/engine.js": 2107,
+  "js/ui.js": 873,
   "js/save.js": 98,
   "js/audio.js": 53,
   "server.js": 126,
-  "test/dom.test.js": 881,
+  "test/dom.test.js": 933,
   "scripts/start.sh": 56
  },
  "test": {
   "sections": 18,
-  "asserts": 157,
-  "checks": 44,
-  "lines": 881
+  "asserts": 172,
+  "checks": 46,
+  "lines": 933
  },
  "totals": {
-  "jsLines": 3322,
-  "cssLines": 564,
-  "htmlLines": 269,
-  "testLines": 881,
+  "jsLines": 3462,
+  "cssLines": 597,
+  "htmlLines": 284,
+  "testLines": 933,
   "docFiles": 5,
   "screens": 9,
   "skinStyles": [
@@ -886,7 +918,7 @@ window.OVERVIEW_FACTS = {
   "updateLegion()      算速度修正 → 移动军团中心 → 单位跟随编队 → 临时援军到期",
   "4. buildUnitGrid()      把所有单位塞进空间网格（格子 46px）",
   "5. updateNeutrals()     中立小人游荡 + 被收编判定（查 3×3 邻域网格）",
-  "6. updateCombat()       军团两两接触判定 + 逐个吞噬",
+  "6. updateCombat()       军团两两接触判定 + 按拍吞噬（盖住多少同批吞多少）",
   "7. updateFx()           技能计时、冷却",
   "8. updateParticles()    粒子与飘字",
   "9. updateCamera()       镜头跟随、缩放、危险度",
@@ -896,8 +928,8 @@ window.OVERVIEW_FACTS = {
   "13. checkGoal()         判定胜负（无尽 → 里程碑）"
  ],
  "faq": {
-  "questions": 30,
-  "lines": 178
+  "questions": 32,
+  "lines": 193
  },
  "tree": [
   {
@@ -909,8 +941,8 @@ window.OVERVIEW_FACTS = {
      "name": "style.css",
      "path": "css/style.css",
      "type": "file",
-     "bytes": 26644,
-     "lines": 564
+     "bytes": 28530,
+     "lines": 597
     }
    ]
   },
@@ -923,29 +955,29 @@ window.OVERVIEW_FACTS = {
      "name": "01-gameplay.md",
      "path": "docs/01-gameplay.md",
      "type": "file",
-     "bytes": 8017,
-     "lines": 153
+     "bytes": 9077,
+     "lines": 163
     },
     {
      "name": "02-modes.md",
      "path": "docs/02-modes.md",
      "type": "file",
-     "bytes": 13344,
-     "lines": 221
+     "bytes": 14030,
+     "lines": 226
     },
     {
      "name": "03-systems.md",
      "path": "docs/03-systems.md",
      "type": "file",
-     "bytes": 7858,
-     "lines": 173
+     "bytes": 8464,
+     "lines": 177
     },
     {
      "name": "04-development.md",
      "path": "docs/04-development.md",
      "type": "file",
-     "bytes": 22038,
-     "lines": 452
+     "bytes": 24184,
+     "lines": 468
     },
     {
      "name": "05-controls-and-layout.md",
@@ -958,21 +990,21 @@ window.OVERVIEW_FACTS = {
      "name": "architecture.svg",
      "path": "docs/architecture.svg",
      "type": "file",
-     "bytes": 14806,
+     "bytes": 14828,
      "lines": 135
     },
     {
      "name": "attrition-mechanic.svg",
      "path": "docs/attrition-mechanic.svg",
      "type": "file",
-     "bytes": 5581,
-     "lines": 58
+     "bytes": 7025,
+     "lines": 70
     },
     {
      "name": "content-scale.svg",
      "path": "docs/content-scale.svg",
      "type": "file",
-     "bytes": 6527,
+     "bytes": 6533,
      "lines": 66
     }
    ]
@@ -993,15 +1025,15 @@ window.OVERVIEW_FACTS = {
      "name": "config.js",
      "path": "js/config.js",
      "type": "file",
-     "bytes": 17806,
-     "lines": 302
+     "bytes": 19486,
+     "lines": 331
     },
     {
      "name": "engine.js",
      "path": "js/engine.js",
      "type": "file",
-     "bytes": 76868,
-     "lines": 2054
+     "bytes": 79753,
+     "lines": 2107
     },
     {
      "name": "save.js",
@@ -1014,8 +1046,8 @@ window.OVERVIEW_FACTS = {
      "name": "ui.js",
      "path": "js/ui.js",
      "type": "file",
-     "bytes": 31225,
-     "lines": 815
+     "bytes": 33334,
+     "lines": 873
     }
    ]
   },
@@ -1042,21 +1074,21 @@ window.OVERVIEW_FACTS = {
      "name": "charts.js",
      "path": "project_overview/charts.js",
      "type": "file",
-     "bytes": 10053,
-     "lines": 216
+     "bytes": 11517,
+     "lines": 234
     },
     {
      "name": "index.html",
      "path": "project_overview/index.html",
      "type": "file",
-     "bytes": 35669,
-     "lines": 561
+     "bytes": 36887,
+     "lines": 567
     },
     {
      "name": "script.js",
      "path": "project_overview/script.js",
      "type": "file",
-     "bytes": 21603,
+     "bytes": 21711,
      "lines": 428
     },
     {
@@ -1082,36 +1114,36 @@ window.OVERVIEW_FACTS = {
        "name": "generate_architecture_svg.mjs",
        "path": "scripts/visualization/generate_architecture_svg.mjs",
        "type": "file",
-       "bytes": 10415,
+       "bytes": 10437,
        "lines": 198
       },
       {
        "name": "generate_attrition_mechanic_svg.mjs",
        "path": "scripts/visualization/generate_attrition_mechanic_svg.mjs",
        "type": "file",
-       "bytes": 7774,
-       "lines": 133
+       "bytes": 10068,
+       "lines": 162
       },
       {
        "name": "generate_content_scale_svg.mjs",
        "path": "scripts/visualization/generate_content_scale_svg.mjs",
        "type": "file",
-       "bytes": 5686,
+       "bytes": 5719,
        "lines": 90
       },
       {
        "name": "generate_overview_facts.mjs",
        "path": "scripts/visualization/generate_overview_facts.mjs",
        "type": "file",
-       "bytes": 8127,
-       "lines": 182
+       "bytes": 8309,
+       "lines": 185
       },
       {
        "name": "lib_load_facts.mjs",
        "path": "scripts/visualization/lib_load_facts.mjs",
        "type": "file",
-       "bytes": 4778,
-       "lines": 138
+       "bytes": 5017,
+       "lines": 141
       }
      ]
     },
@@ -1133,8 +1165,8 @@ window.OVERVIEW_FACTS = {
      "name": "dom.test.js",
      "path": "test/dom.test.js",
      "type": "file",
-     "bytes": 49186,
-     "lines": 881
+     "bytes": 53780,
+     "lines": 933
     }
    ]
   },
@@ -1184,8 +1216,8 @@ window.OVERVIEW_FACTS = {
    "name": "CHANGELOG.md",
    "path": "CHANGELOG.md",
    "type": "file",
-   "bytes": 18493,
-   "lines": 218
+   "bytes": 22077,
+   "lines": 265
   },
   {
    "name": "CODE_OF_CONDUCT.md",
@@ -1198,22 +1230,22 @@ window.OVERVIEW_FACTS = {
    "name": "CONTRIBUTING.md",
    "path": "CONTRIBUTING.md",
    "type": "file",
-   "bytes": 12631,
-   "lines": 206
+   "bytes": 13071,
+   "lines": 208
   },
   {
    "name": "FAQ.md",
    "path": "FAQ.md",
    "type": "file",
-   "bytes": 11254,
-   "lines": 178
+   "bytes": 12846,
+   "lines": 193
   },
   {
    "name": "index.html",
    "path": "index.html",
    "type": "file",
-   "bytes": 12154,
-   "lines": 269
+   "bytes": 13268,
+   "lines": 284
   },
   {
    "name": "LICENSE",
@@ -1233,7 +1265,7 @@ window.OVERVIEW_FACTS = {
    "name": "package.json",
    "path": "package.json",
    "type": "file",
-   "bytes": 1125,
+   "bytes": 1149,
    "lines": 31
   },
   {
@@ -1247,8 +1279,8 @@ window.OVERVIEW_FACTS = {
    "name": "README.md",
    "path": "README.md",
    "type": "file",
-   "bytes": 11950,
-   "lines": 212
+   "bytes": 12292,
+   "lines": 214
   },
   {
    "name": "SECURITY.md",
