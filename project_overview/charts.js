@@ -28,8 +28,8 @@
   }
 
   /* ---- 数据构造（全部由 facts 推导） ---- */
-  /* 机制示意图：双方初始人数为示意值（与图内文字标注一致），
-     而台阶间隔严格使用配置里的 CFG.eat.interval。 */
+  /* 机制示意图：双方初始人数与「每拍被盖住几个」为示意值（与图内文字标注一致），
+     而台阶间隔严格使用配置里的 CFG.eat.interval；单批上限读 CFG.eat.batchMax。 */
   function attritionDatasets() {
     var iv = F.mechanics.eatInterval;
     var ENEMY = 5, ME = 3, n = ENEMY;
@@ -44,7 +44,19 @@
       foeOne.push({ x: tt, y: j === 0 ? ENEMY : 0 });
       meOne.push({ x: tt, y: j === 0 ? ME : ENEMY + ME });
     }
-    return { foe: foe, me: me, foeOne: foeOne, meOne: meOne, iv: iv, n: n };
+    /* 覆盖场景：一拍同批吞 COVER 个（COVER 是机制示意值，与图内标注一致；
+       真实上限是 CFG.eat.batchMax，写在图例文字里） */
+    var COVER = 2;
+    var steps = Math.ceil(ENEMY / COVER);
+    var foeCov = [], meCov = [];
+    for (var s = 0; s <= steps; s++) {
+      var eaten = Math.min(ENEMY, COVER * s);
+      var ts = +(Math.min(s * iv, iv * n)).toFixed(4);
+      foeCov.push({ x: ts, y: ENEMY - eaten });
+      meCov.push({ x: ts, y: ME + eaten });
+    }
+    return { foe: foe, me: me, foeOne: foeOne, meOne: meOne,
+             foeCov: foeCov, meCov: meCov, cover: COVER, iv: iv, n: n };
   }
 
   function contentSeries() {
@@ -80,9 +92,11 @@
     if (!hasChart) {
       var a = attritionDatasets();
       var boxes = [
-        ['chartAttrition', ['接触后秒数', '本作·敌方', '本作·我方', '同类·敌方', '同类·我方'],
+        ['chartAttrition', ['接触后秒数', '本作·擦边·敌方', '本作·擦边·我方', '本作·盖住' + a.cover + '个/拍·敌方', '本作·盖住' + a.cover + '个/拍·我方', '同类·敌方', '同类·我方'],
           a.foe.map(function (pt, i) {
-            return [pt.x.toFixed(2), pt.y, a.me[i].y, a.foeOne[i].y, a.meOne[i].y];
+            var cov = a.foeCov[i] || a.foeCov[a.foeCov.length - 1];
+            var covMe = a.meCov[i] || a.meCov[a.meCov.length - 1];
+            return [pt.x.toFixed(2), pt.y, a.me[i].y, cov.y, covMe.y, a.foeOne[i].y, a.meOne[i].y];
           })],
         ['chartContent', ['门类', '条目数'], contentSeries().map(function (r) { return [r[0], r[1]]; })],
         ['chartCurve', ['关卡', '中立小人', '敌军总人数', '金币'],
@@ -115,7 +129,7 @@
       charts = {};
     }
 
-    /* --- 图 1：逐个吞噬 vs 一次性吞并 --- */
+    /* --- 图 1：按拍吞噬（擦边逐个吞 / 覆盖同批吞）vs 一次性吞并 --- */
     var el1 = document.getElementById('chartAttrition');
     if (el1 && !charts.attrition) {
       var D = attritionDatasets();
@@ -123,10 +137,14 @@
         type: 'line',
         data: {
           datasets: [
-            { label: '本作 · 敌方人数', data: D.foe, borderColor: red, backgroundColor: 'rgba(255,91,110,.14)',
+            { label: '本作 · 敌方人数（擦边 1 个/拍）', data: D.foe, borderColor: red, backgroundColor: 'rgba(255,91,110,.14)',
               stepped: 'after', borderWidth: 3, pointRadius: 4, pointBackgroundColor: red, fill: false },
-            { label: '本作 · 我方人数', data: D.me, borderColor: blue, backgroundColor: 'rgba(61,155,255,.14)',
+            { label: '本作 · 我方人数（擦边 1 个/拍）', data: D.me, borderColor: blue, backgroundColor: 'rgba(61,155,255,.14)',
               stepped: 'after', borderWidth: 3, pointRadius: 4, pointBackgroundColor: blue, fill: false },
+            { label: '本作 · 敌方（盖住 ' + D.cover + ' 个/拍）', data: D.foeCov, borderColor: red, borderDash: [2, 3],
+              stepped: 'after', borderWidth: 2, pointRadius: 3, pointBackgroundColor: red, fill: false },
+            { label: '本作 · 我方（盖住 ' + D.cover + ' 个/拍）', data: D.meCov, borderColor: blue, borderDash: [2, 3],
+              stepped: 'after', borderWidth: 2, pointRadius: 3, pointBackgroundColor: blue, fill: false },
             { label: '同类 · 敌方人数（瞬间归零）', data: D.foeOne, borderColor: red, borderDash: [6, 5],
               borderWidth: 2, pointRadius: 0, fill: false },
             { label: '同类 · 我方人数（瞬间 +5）', data: D.meOne, borderColor: blue, borderDash: [6, 5],

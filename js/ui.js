@@ -198,7 +198,10 @@ const UI = {
     const d = this.$('prep-goal');
     if (d) {
       d.textContent = this.pendingMode === 'endless'
-        ? ('没有「层」也没有终点：人数只增不减，每满 ' + lv.goal.step + ' 人达成一个里程碑并弹出三选一奖励，选完接着打，直到被打光')
+        ? ('没有「层」也没有终点：人数只增不减，第一个里程碑只要 ' + ENDLESS.milestoneFirst +
+          ' 人，之后每一段要求的增量会一路涨上去（+' + ENDLESS.milestoneStepBase + '、+' +
+          (ENDLESS.milestoneStepBase + ENDLESS.milestoneStepGrowth) + '、+' +
+          (ENDLESS.milestoneStepBase + ENDLESS.milestoneStepGrowth * 2) + '…）；达成一次弹一次三选一，选完接着打，直到被打光')
         : (lv.goal.type === 'reach'
           ? '过关目标：军团达到 ' + lv.goal.val + ' 人'
           : '过关目标：消灭全部 ' + lv.enemies.length + ' 支敌军');
@@ -307,6 +310,7 @@ const UI = {
 
     this.show('screen-game');
     this.$('pause-overlay').classList.remove('active');
+    this.hideMilestoneOverlay();
     this.$('hud-level').textContent = this.run.mode === 'endless'
       ? '无尽模式'
       : ('第 ' + level.id + ' 关 · ' + level.name);
@@ -444,6 +448,7 @@ const UI = {
   },
 
   abandonRun() {
+    this.hideMilestoneOverlay();
     if (this.game) { this.game.destroy(); this.game = null; }
     this.run = null;
     save();
@@ -482,7 +487,7 @@ const UI = {
     this.show('screen-reward');
   },
 
-  /* ---- 无尽模式：里程碑达成（不结束对局，只暂停去选奖励） ---- */
+  /* ---- 无尽模式：里程碑达成（不结束对局、不切页，直接在战场上浮出半透明三选一） ---- */
   onMilestone(res) {
     const run = this.run;
     run.coinsEarned += res.coin;
@@ -493,18 +498,66 @@ const UI = {
     Save.addCoins(res.coin);
     save();
     this.refreshCoins();
-    const newAch = this.checkAchievements();
 
-    this.$('reward-stars').innerHTML = '<span class="stage-badge">' + res.threshold + ' 人</span>';
-    this.$('reward-title').textContent = '里程碑达成：' + res.threshold + ' 人！';
-    this.$('reward-sub').textContent = '用时 ' + fmtTime(res.time) + ' · 第 ' + res.milestone +
-      ' 次奖励 · 当前 ' + res.count + ' 人' + (res.peak > prevBest ? ' · 新纪录！' : '');
-    this.$('reward-coin').textContent = '+' + res.coin;
-    this.renderRewards(newAch, { endless: true });
-    this.show('screen-reward');
+    this.$('ms-threshold').textContent = res.threshold + ' 人';
+    this.$('ms-title').textContent = '里程碑达成：' + res.threshold + ' 人！';
+    this.$('ms-sub').textContent = '用时 ' + fmtTime(res.time) + ' · 第 ' + res.milestone +
+      ' 次奖励 · +' + res.coin + ' 金币 · 当前 ' + res.count + ' 人' +
+      (res.peak > prevBest ? ' · 新纪录！' : '');
+    this.renderMilestoneRewards();
+    const ov = this.$('milestone-overlay');
+    if (ov) ov.classList.add('active');
+
+    const newAch = this.checkAchievements();
+    if (newAch && newAch.length) {
+      newAch.forEach(a => this.toast('成就达成：' + a.name + '（+' + a.coins + ' 金币）', 2600));
+    }
+  },
+
+  /* ---- 里程碑三选一：点一张卡直接生效，短暂高光后自动回到战场（不需要再点「下一步」） ---- */
+  renderMilestoneRewards() {
+    const wrap = this.$('ms-cards');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    this.msChosen = false;
+    if (this.msTimer) { clearTimeout(this.msTimer); this.msTimer = 0; }
+    this.rollRewards({ endless: true }).forEach(card => {
+      wrap.appendChild(this.cardEl(card, (c, el) => {
+        if (this.msChosen) return;
+        this.msChosen = true;
+        SFX.coin();
+        c.apply();
+        save();
+        this.refreshCoins();
+        this.$$('#ms-cards .reward-card').forEach(x => x.classList.add('fade'));
+        el.classList.remove('fade');
+        el.classList.add('picked');
+        this.toast('已获得：' + c.title, 1800);
+        this.msTimer = setTimeout(() => this.closeMilestone(), 380);
+      }));
+    });
+  },
+
+  closeMilestone() {
+    this.hideMilestoneOverlay();
+    if (this.game) {
+      this.game.resumeFromMilestone();
+      this.game.resize();
+    }
+  },
+
+  /* 只收浮层，不推进对局（换关 / 放弃 / 结算时用来清场） */
+  hideMilestoneOverlay() {
+    if (this.msTimer) { clearTimeout(this.msTimer); this.msTimer = 0; }
+    this.msChosen = false;
+    const ov = this.$('milestone-overlay');
+    if (ov) ov.classList.remove('active');
+    const wrap = this.$('ms-cards');
+    if (wrap) wrap.innerHTML = '';
   },
 
   onLose(res) {
+    this.hideMilestoneOverlay();
     if (this.game) { this.game.destroy(); this.game = null; }
     const prevBest = Save.data.stats.endlessBest || 0;
     const endless = res.endless || (this.run && this.run.mode === 'endless');
@@ -530,6 +583,20 @@ const UI = {
   },
 
   /* ---------------- 三选一奖励 ---------------- */
+  /* 一张奖励卡的 DOM（结算页与里程碑浮层共用） */
+  cardEl(card, onPick) {
+    const el = document.createElement('button');
+    el.className = 'reward-card';
+    el.style.setProperty('--c', card.color);
+    el.innerHTML =
+      '<div class="rc-icon">' + card.icon + '</div>' +
+      '<div class="rc-title">' + card.title + '</div>' +
+      '<div class="rc-desc">' + card.desc + '</div>' +
+      '<div class="rc-kind">' + card.kind + '</div>';
+    el.addEventListener('click', () => onPick(card, el));
+    return el;
+  },
+
   renderRewards(newAch, opts) {
     const endless = !!(opts && opts.endless) ||
       !!(this.run && this.run.mode === 'endless');
@@ -538,27 +605,18 @@ const UI = {
     const cards = this.rollRewards({ endless: endless });
     this.chosen = false;
     cards.forEach(card => {
-      const el = document.createElement('button');
-      el.className = 'reward-card';
-      el.style.setProperty('--c', card.color);
-      el.innerHTML =
-        '<div class="rc-icon">' + card.icon + '</div>' +
-        '<div class="rc-title">' + card.title + '</div>' +
-        '<div class="rc-desc">' + card.desc + '</div>' +
-        '<div class="rc-kind">' + card.kind + '</div>';
-      el.addEventListener('click', () => {
+      wrap.appendChild(this.cardEl(card, (c, el) => {
         if (this.chosen) return;
         this.chosen = true;
         SFX.coin();
-        card.apply();
+        c.apply();
         save();
         this.refreshCoins();
         this.$$('#reward-cards .reward-card').forEach(x => x.classList.add('fade'));
         el.classList.remove('fade');
         el.classList.add('picked');
         this.$('btn-reward-next').classList.add('show');
-      });
-      wrap.appendChild(el);
+      }));
     });
     const nextBtn = this.$('btn-reward-next');
     nextBtn.textContent = endless ? '继续无尽挑战' : '进入下一关';

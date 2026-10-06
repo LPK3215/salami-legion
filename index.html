@@ -7,7 +7,7 @@
 <title>蚕食军团 · Salami Legion</title>
 <!-- 静态资源带版本号：改了 css/js 就把 ?v= 一起改掉，
      否则老访客的浏览器会继续用缓存里的旧脚本（GitHub Pages 给静态资源 10 分钟强缓存） -->
-<link rel="stylesheet" href="css/style.css?v=20261004">
+<link rel="stylesheet" href="css/style.css?v=20261006">
 </head>
 <body>
 
@@ -17,7 +17,7 @@
   <div class="menu-wrap">
     <div class="logo-box">
       <h1 class="game-logo">蚕食<span>军团</span></h1>
-      <p class="game-sub">逐个吞噬 · 越打越大 · 一关一关打上去</p>
+      <p class="game-sub">按拍吞噬 · 盖住多少吞多少 · 一关一关打上去</p>
       <div class="logo-preview"><canvas id="menu-preview" width="120" height="120"></canvas></div>
     </div>
 
@@ -136,6 +136,19 @@
       <button class="btn btn-soft danger" id="btn-quit">放弃本次挑战</button>
     </div>
   </div>
+
+  <!-- 无尽里程碑：不切页，直接在战场上浮出三选一（背景半透明，战况仍然看得见） -->
+  <div class="overlay ms-overlay" id="milestone-overlay">
+    <div class="ms-panel">
+      <div class="ms-head">
+        <span class="stage-badge" id="ms-threshold">10 人</span>
+        <h2 id="ms-title">里程碑达成</h2>
+        <p class="panel-sub" id="ms-sub"></p>
+      </div>
+      <div class="reward-cards ms-cards" id="ms-cards"></div>
+      <div class="ms-foot">点一张卡 → 立刻生效并接着打</div>
+    </div>
+  </div>
 </section>
 
 <!-- ================= 通关奖励 ================= -->
@@ -206,7 +219,7 @@
       <h3>两种游戏模式</h3>
       <ul>
         <li><b>关卡挑战</b>：主线 13 关，一关一关推进。每关有明确目标（达到指定人数 / 消灭所有敌军），达成即结算并进入三选一奖励，然后下一关。</li>
-        <li><b>无尽挑战</b>：<b>没有层、也没有关卡</b>——一整场连续对局，人数只增不减。每满 50 人就暂停一次让你三选一，选完<b>回到同一场</b>继续打。地图是一块<b>以你为中心、随人数持续变大</b>的动态战场（走到哪生成到哪，没有固定尺寸也没有墙），敌军规模也会跟着你的军团实时变强，直到你被打光。</li>
+        <li><b>无尽挑战</b>：<b>没有层、也没有关卡</b>——一整场连续对局，人数只增不减。第一个里程碑只要 10 人就能拿到三选一，之后<b>每一段要求的增量会一路涨上去</b>（+40、+50、+60…），不会动不动就弹窗。奖励浮层是<b>半透明</b>的，直接浮在战场上，<b>点一张卡就立刻生效并接着打</b>。地图是一块<b>以你为中心、随人数持续变大</b>的动态战场（走到哪生成到哪，没有固定尺寸也没有墙），敌军规模也会跟着你的军团实时变强，直到你被打光。</li>
         <li>两种模式都是<b>一次挑战 = 先选技能与开局人数</b>，中间靠三选一奖励不断变强；区别是关卡挑战每关人数从头开始，无尽挑战的人数一个都不会重置。</li>
       </ul>
 
@@ -228,11 +241,13 @@
         <li>切到后台会自动暂停，回来点「继续游戏」即可。</li>
       </ul>
 
-      <h3>最大特色：逐个单位吞噬</h3>
+      <h3>核心机制：按拍吞噬，盖住多少吞多少</h3>
       <ul>
-        <li>两支军团接触后，<b>不会一次性吞并整队</b>，而是每 0.3 秒 1 个单位地持续消耗。</li>
-        <li>我方 5 人 vs 敌方 3 人 → 逐个吃掉对方，最终我方 8 人。</li>
-        <li>我方 5 人 vs 敌方 10 人 → 我方被逐个吞掉，人数持续下降，<b>要立刻跑！</b></li>
+        <li>两支军团接触后，<b>不会一次性吞并整队</b>，而是每 0.32 秒结算一批。</li>
+        <li>一批吞多少个，取决于对面有多少小人已经被你<b>盖在你的圆盘里</b>：只擦到边缘一次只死 1 个，直接碾进去则那一批同时全被你吸收。</li>
+        <li>所以：把敌人<b>包住、压进去</b>吃得快，平行擦边只能一个一个啃。</li>
+        <li>我方 5 人 vs 敌方 3 人 → 持续吃掉对方，最终我方 8 人。</li>
+        <li>我方 5 人 vs 敌方 10 人 → 我方被持续吞掉，人数不断下降，<b>要立刻跑！</b></li>
         <li>所以：看见蓝色标记（比我方少）就冲，看见红色标记（比我方多）就跑。</li>
       </ul>
 
@@ -240,7 +255,7 @@
       <ul>
         <li><b>中立小人</b>：地图上四处游荡的白色小人，碰到就加入我方。</li>
         <li><b>关卡目标</b>：达到指定人数，或消灭所有敌军。</li>
-        <li><b>三选一奖励</b>：通关后从「金币 / 技能解锁升级 / 本局增益」中选 1 项。</li>
+        <li><b>三选一奖励</b>：通关（或无尽里程碑）后从「金币 / 技能解锁升级 / 本局增益」中选 1 项，点卡即生效。</li>
         <li><b>本局增益</b>：在本次挑战内所有关卡持续累积，越打越强。</li>
         <li><b>金币</b>：用于商店解锁皮肤；<b>成就</b>也会发放金币。</li>
       </ul>
@@ -260,10 +275,10 @@
 
 <div id="toast-wrap"></div>
 
-<script src="js/config.js?v=20261004"></script>
-<script src="js/save.js?v=20261004"></script>
-<script src="js/audio.js?v=20261004"></script>
-<script src="js/engine.js?v=20261004"></script>
-<script src="js/ui.js?v=20261004"></script>
+<script src="js/config.js?v=20261006"></script>
+<script src="js/save.js?v=20261006"></script>
+<script src="js/audio.js?v=20261006"></script>
+<script src="js/engine.js?v=20261006"></script>
+<script src="js/ui.js?v=20261006"></script>
 </body>
 </html>

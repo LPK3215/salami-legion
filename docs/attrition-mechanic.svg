@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 556" width="1080" height="556" font-family="system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="逐个单位吞噬与一次性吞并的对比">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 556" width="1080" height="556" font-family="system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="按拍吞噬（擦边逐个吞、覆盖同批吞）与一次性吞并的对比">
 <defs>
   <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0%" stop-color="#0a0f24"/><stop offset="100%" stop-color="#141c3d"/>
@@ -8,13 +8,13 @@
   </linearGradient>
 </defs>
 <rect width="1080" height="556" fill="url(#bg2)"/>
-<text x="30" y="44" font-size="24" font-weight="800" fill="url(#ttl2)">核心差异 · 逐个单位吞噬</text>
-<text x="30" y="72" font-size="12.5" fill="rgba(234,241,255,.62)">同一支 3 人军团遇上 5 人敌军后的人数变化。台阶间隔严格等于配置值；双方初始人数（敌 5 / 我 3）为机制示意值，不是实测数据。</text>
+<text x="30" y="44" font-size="24" font-weight="800" fill="url(#ttl2)">核心差异 · 按拍吞噬，盖住多少吞多少</text>
+<text x="30" y="72" font-size="12.5" fill="rgba(234,241,255,.62)">同一支 3 人军团遇上 5 人敌军后的人数变化。台阶间隔严格等于配置值；双方初始人数（敌 5 / 我 3）与虚线的「每拍被盖住 2 个」均为机制示意值，不是实测数据。</text>
   <line x1="132" y1="94" x2="158" y2="94" stroke="#ff5b6e" stroke-width="3"/>
   <text x="166" y="98" font-size="12.5" fill="#ff5b6e">敌方军团人数</text>
   <line x1="272" y1="94" x2="298" y2="94" stroke="#3d9bff" stroke-width="3"/>
   <text x="306" y="98" font-size="12.5" fill="#3d9bff">我方军团人数</text>
-  <text x="1010" y="98" text-anchor="end" font-size="11.5" fill="rgba(234,241,255,.62)">节奏真源 js/config.js → CFG.eat.interval = 0.32s，contact = 0.94</text>
+  <text x="1010" y="98" text-anchor="end" font-size="11.5" fill="rgba(234,241,255,.62)">节奏真源 js/config.js → CFG.eat.interval = 0.32s，contact = 0.94，batchMax = 10/批</text>
   <text x="30" y="124" font-size="14.5" font-weight="700" fill="rgba(234,241,255,.62)">同类做法 · 接触瞬间整队吞并</text>
   <rect x="132" y="136" width="878" height="122" rx="8" fill="rgba(255,255,255,.03)" stroke="rgba(234,241,255,.62)" stroke-opacity=".28"/>
   <path d="M170.0 185.3 L170.0 244.0 L990.0 244.0" fill="none" stroke="#ff5b6e" stroke-width="2.8" stroke-opacity=".9"/>
@@ -22,7 +22,7 @@
   <text x="982" y="201.0" text-anchor="end" font-size="12.5" fill="rgba(234,241,255,.62)">胜负在碰上的那一刻就定死</text>
   <text x="120" y="154.0" text-anchor="end" font-size="11" fill="rgba(234,241,255,.62)">8</text>
   <text x="120" y="248.0" text-anchor="end" font-size="11" fill="rgba(234,241,255,.62)">0</text>
-  <text x="30" y="300" font-size="14.5" font-weight="700" fill="#ffd93d">本作《蚕食军团》· 每 0.32s 才转移 1 个单位（阶梯逐个消耗）</text>
+  <text x="30" y="300" font-size="14.5" font-weight="700" fill="#ffd93d">本作《蚕食军团》· 每 0.32s 结算一批：实线 = 擦边（1 个/拍），虚线 = 被盖住 2 个/拍</text>
   <rect x="132" y="312" width="878" height="158" rx="8" fill="rgba(255,217,61,.04)" stroke="#ffd93d" stroke-opacity=".32"/>
   <line x1="170.0" y1="318" x2="170.0" y2="464" stroke="#ffd93d" stroke-opacity=".18"/>
   <text x="170.0" y="490" text-anchor="middle" font-size="11" fill="rgba(234,241,255,.62)">0.00s</text>
@@ -50,9 +50,21 @@
   <circle cx="826.0" cy="342.3" r="3.6" fill="#3d9bff"/>
   <circle cx="990.0" cy="456.0" r="3.6" fill="#ff5b6e"/>
   <circle cx="990.0" cy="326.0" r="3.6" fill="#3d9bff"/>
+  <path d="M170.0 374.8 L334.0 374.8 L334.0 407.3 L498.0 407.3 L498.0 439.8 L662.0 439.8 L662.0 456.0" fill="none" stroke="#ff5b6e" stroke-width="2.6" stroke-opacity=".85" stroke-dasharray="7 5"/>
+  <path d="M170.0 407.3 L334.0 407.3 L334.0 374.8 L498.0 374.8 L498.0 342.3 L662.0 342.3 L662.0 326.0" fill="none" stroke="#3d9bff" stroke-width="2.6" stroke-opacity=".85" stroke-dasharray="7 5"/>
+  <circle cx="170.0" cy="374.8" r="3.4" fill="#ff5b6e" fill-opacity=".85"/>
+  <circle cx="170.0" cy="407.3" r="3.4" fill="#3d9bff" fill-opacity=".85"/>
+  <circle cx="334.0" cy="407.3" r="3.4" fill="#ff5b6e" fill-opacity=".85"/>
+  <circle cx="334.0" cy="374.8" r="3.4" fill="#3d9bff" fill-opacity=".85"/>
+  <circle cx="498.0" cy="439.8" r="3.4" fill="#ff5b6e" fill-opacity=".85"/>
+  <circle cx="498.0" cy="342.3" r="3.4" fill="#3d9bff" fill-opacity=".85"/>
+  <circle cx="662.0" cy="456.0" r="3.4" fill="#ff5b6e" fill-opacity=".85"/>
+  <circle cx="662.0" cy="326.0" r="3.4" fill="#3d9bff" fill-opacity=".85"/>
+  <text x="826.0" y="391.0" text-anchor="middle" font-size="12.5" fill="rgba(234,241,255,.62)">把对方盖进自己的圆盘里 →</text>
+  <text x="826.0" y="409.0" text-anchor="middle" font-size="12.5" fill="#ffd93d">一拍吞 2 个（上限 10 个/批）</text>
   <text x="120" y="330.0" text-anchor="end" font-size="11" fill="rgba(234,241,255,.62)">8</text>
   <text x="120" y="460.0" text-anchor="end" font-size="11" fill="rgba(234,241,255,.62)">0</text>
-  <text x="132" y="510" font-size="11.5" fill="rgba(234,241,255,.62)">纵轴：军团人数　横轴：接触后经过的秒数（每个台阶 = 转移 1 个单位 = 0.32s）</text>
-  <text x="1010" y="510" text-anchor="end" font-size="12.5" fill="#ffd93d">→ 消耗期间人数随时可能反超：什么时候冲、什么时候撤，才是这游戏的技术含量</text>
-<text x="30" y="542" font-size="11.5" fill="rgba(234,241,255,.62)">生成于 2026-10-04｜数据真源 js/config.js（CFG.eat）｜版本 v1.1.0</text>
+  <text x="132" y="510" font-size="11.5" fill="rgba(234,241,255,.62)">纵轴：军团人数　横轴：接触后经过的秒数（每个台阶 = 一次结算；实线每台阶 1 个，虚线每台阶 2 个）</text>
+  <text x="1010" y="510" text-anchor="end" font-size="12.5" fill="#ffd93d">→ 消耗期间人数随时可能反超：怎么接触、什么时候撤，才是这游戏的技术含量</text>
+<text x="30" y="542" font-size="11.5" fill="rgba(234,241,255,.62)">生成于 2026-10-06｜数据真源 js/config.js（CFG.eat）｜版本 v1.2.0</text>
 </svg>

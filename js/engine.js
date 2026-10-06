@@ -1,6 +1,6 @@
 /* ==========================================================
    蚕食军团 · 核心引擎
-   特色：军团接触后【逐个单位吞噬】，而非一次性吞并整队
+   特色：军团接触后【按拍结算】，被我方圆盘盖住的那一部分会同批被吸收掉
    ========================================================== */
 
 (function (global) {
@@ -218,12 +218,13 @@
       this.unitGrid = new Map();
       this.cell = 46;
 
-      /* 无尽模式：没有「层」，靠里程碑（每满 step 人弹一次三选一）推进 */
+      /* 无尽模式：没有「层」，靠里程碑（要求逐段递增）推进，每达成一次弹一次三选一 */
       this.endless = !!(this.level && this.level.endless);
       this.endlessAcc = 0;
       this.milestones = 0;
+      this.milestonePrev = 0;              // 上一个已达成的里程碑人数（算下一段进度条用）
       this.nextMilestone = (this.endless && this.level.goal.type === 'endless')
-        ? this.level.goal.step : 0;
+        ? (this.level.goal.step || ENDLESS.milestoneFirst) : 0;
 
       this.legions = [];
       this.neutrals = [];
@@ -1065,7 +1066,7 @@
       }
     }
 
-    /* ===== 战斗：逐个单位吞噬 ===== */
+    /* ===== 战斗：按拍吞噬，盖住多少就同批吞多少 ===== */
     updateCombat(dt) {
       this.contacts.length = 0;
       const ls = this.legions;
@@ -1107,18 +1108,51 @@
 
           const rate = big.isPlayer ? (big.atkMul || 1) : 1;
           this.pairTimers.set(key, CFG.eat.interval / Math.max(0.4, rate));
-          this.absorb(small, big, d);
+          /* 一批吞多少个：输家有多少单位已经被赢家圆盘「盖住」，
+             就一口气把它们全吸收掉 —— 只擦到边缘时一批只有 1 个，碾进去就是一批 */
+          const cap = Math.max(1, Math.round(CFG.eat.batchMax * Math.max(1, rate)));
+          const batch = Math.min(cap, this.engulfedCount(small, big));
+          this.absorbBatch(small, big, batch, d);
 
           if (big.isPlayer || small.isPlayer) {
-            this.shake = Math.min(9, this.shake + (big.isPlayer ? 2.2 : 4.5));
+            const g = Math.max(1, batch);
+            this.shake = Math.min(9, this.shake + (big.isPlayer ? 1.2 + g * 0.4 : 2.6 + g * 0.6));
           }
         }
       }
     }
 
-    /* 吞噬一个单位：从 loser 转移给 winner */
-    absorb(loser, winner, contactDist) {
-      if (loser.count === 0) return;
+    /* 输家落在赢家圆盘内的单位数（= 被「覆盖」的那部分，决定这一拍能同批吞几个） */
+    engulfedCount(loser, winner) {
+      const r2 = winner.radius * winner.radius;
+      const arr = loser.units;
+      let g = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const u = arr[i];
+        if (dist2(u.x, u.y, winner.cx, winner.cy) <= r2) g++;
+      }
+      return g;
+    }
+
+    /* 同批吸收：一批内部只报一次音效 / 飘字，避免一拍刷出十声“吃” */
+    absorbBatch(loser, winner, k, contactDist) {
+      const n = Math.max(1, k | 0);
+      let done = 0;
+      for (let i = 0; i < n; i++) {
+        if (loser.count === 0) break;
+        this.absorb(loser, winner, contactDist, i > 0);
+        done++;
+      }
+      if (done <= 1 || !loser.alive) return done;
+      const mx = (loser.cx + winner.cx) / 2, my = (loser.cy + winner.cy) / 2;
+      if (winner.isPlayer) this.floatText('-' + done, mx, my - 20, '#ffffff', 1.15);
+      else if (loser.isPlayer) this.floatText('-' + done, mx, my - 20, '#ff7d8c', 1.2);
+      return done;
+    }
+
+    /* 吞噬一个单位：从 loser 转移给 winner（quiet：同批里的后续几个，不再叠加特效） */
+    absorb(loser, winner, contactDist, quiet) {
+      if (loser.count === 0) return null;
       // 挑选最靠近接触点的单位（前线）
       let bi = 0, bd = Infinity;
       const tx = winner.cx, ty = winner.cy;
@@ -1128,27 +1162,30 @@
         if (d < bd) { bd = d; bi = i; }
       }
       const u = loser.removeUnitAt(bi);
-      if (!u) return;
+      if (!u) return null;
       const nu = winner.addUnit(u.x, u.y);
       if (nu) { nu.flash = 0.55; nu.vx = u.vx; nu.vy = u.vy; }
 
       // 特效
-      this.burst(u.x, u.y, loser.body, 7, 110);
-      this.burst(u.x, u.y, winner.body, 5, 90);
+      const fx = quiet ? 3 : 7;
+      const fx2 = quiet ? 2 : 5;
+      this.burst(u.x, u.y, loser.body, fx, 110);
+      this.burst(u.x, u.y, winner.body, fx2, 90);
       winner.totalEaten++;
       loser.totalLost++;
       if (winner.isPlayer) {
         this.stats.eaten++;
         Save.data.stats.totalEaten++;
-        SFX.eat();
+        if (!quiet) SFX.eat();
         this.playerGot(1);
       } else if (loser.isPlayer) {
-        SFX.eaten();
+        if (!quiet) SFX.eaten();
         this.stats.lost++;
         this.playerLost();
       }
 
       if (loser.count === 0) this.destroyLegion(loser, winner);
+      return u;
     }
 
     destroyLegion(L, by) {
@@ -1379,10 +1416,11 @@
     /* ===== 无尽模式：里程碑（不停机推进的关键） ===== */
     reachMilestone() {
       if (this.status !== 'playing') return;
-      const step = this.level.goal.step || ENDLESS.step;
       const reached = this.nextMilestone;
       this.milestones++;
-      this.nextMilestone = reached + step;
+      this.milestonePrev = reached;
+      // 下一段的要求水涨船高：+40、+50、+60…直到封顶，前期不至于碰不到、后期不至于动不动弹窗
+      this.nextMilestone = reached + endlessMilestoneStep(this.milestones);
       this.status = 'milestone';            // 冻结对局，但游戏实例继续存活
 
       this.releaseInput();                  // 松手，避免回到画面后还朝旧方向狂奔
@@ -1408,6 +1446,13 @@
       this.pushHud();
     }
 
+    /* 全场单位总量（所有军团 + 中立小人），`CFG.unitTotalMax` 的读数口 */
+    totalUnits() {
+      let n = this.neutrals.length;
+      for (const L of this.legions) { if (L.alive) n += L.units.length; }
+      return n;
+    }
+
     /* 无尽难度递增：场上敌军数量与规模持续追着我方人数上涨 */
     endlessRamp() {
       if (this.status !== 'playing' || !this.player.alive) return;
@@ -1423,10 +1468,19 @@
       // 跑出战场的敌军判为溃逃：回收，再由下面的补位换成新的一支（永远有仗可打）
       this.cullEscapedEnemies();
 
+      /* 全场单位总量闸门：`CFG.maxUnits` 是【单军团】能长到多少人，
+         `CFG.unitTotalMax` 是【全场】一共多少人（我方 + 所有敌军 + 中立小人）。
+         接近总量上限时不再增援、不再派新的敌军，保护帧率。 */
+      let budget = CFG.unitTotalMax - this.totalUnits();
+      if (budget <= 0) return;
+
       // 敌军支数随规模上涨
       const want = Math.min(ENDLESS.maxEnemies, 2 + Math.floor(pop / 45));
       let alive = this.legions.filter(L => L.alive && !L.isPlayer);
-      for (let i = alive.length; i < want; i++) this.spawnEndlessEnemy(pop);
+      for (let i = alive.length; i < want && budget > 0; i++) {
+        const A = this.spawnEndlessEnemy(pop);
+        if (A) budget -= A.count;
+      }
 
       // 逐支增援到目标人数（离我方太近时不刷，避免凭空冒兵）
       alive = this.legions.filter(L => L.alive && !L.isPlayer);
@@ -1438,14 +1492,14 @@
           A.ai.sp = st.sp;
         }
         const target = endlessEnemyTarget(pop, this.time, i, alive.length);
-        if (A.count >= target) return;
+        if (A.count >= target || budget <= 0) return;
         const d2p = dist2(A.cx, A.cy, p.cx, p.cy);
         if (d2p < 520 * 520) return;
-        const add = Math.min(8, Math.max(1, Math.ceil((target - A.count) * 0.18)));
+        const add = Math.min(8, Math.max(1, Math.ceil((target - A.count) * 0.18)), Math.max(0, budget));
         for (let k = 0; k < add; k++) {
           const a = Math.random() * TAU, r = rnd(Math.max(4, A.radius * 0.4), A.radius * 0.9 + 12);
           const u = A.addUnit(A.cx + Math.cos(a) * r, A.cy + Math.sin(a) * r);
-          if (u) u.flash = 0.5;
+          if (u) { u.flash = 0.5; budget--; }
         }
         if (d2p < 1400 * 1400) this.burst(A.cx, A.cy, A.body, 6, 90);
       });
@@ -1502,7 +1556,6 @@
       const p = this.player;
 
       if (L.endless) {
-        const step = (L.goal && L.goal.step) || ENDLESS.step;
         const milestone = Math.max(0, this.milestones);
         const base = L.coins || 20;
         const coin = isWin
@@ -1514,7 +1567,7 @@
           levelId: L.id,
           levelName: L.name,
           milestone,
-          threshold: this.nextMilestone - step,
+          threshold: this.milestonePrev,
           levelIndex: this.levelIndex,
           stars: 0,
           time: this.time,
@@ -1601,10 +1654,10 @@
       const g = L.goal;
       let progress = 0, goalText = '';
       if (g.type === 'endless') {
-        const step = g.step || ENDLESS.step;
-        const prev = this.nextMilestone - step;
-        progress = clamp((p.count - prev) / step, 0, 1);
-        goalText = '下一里程碑：' + this.nextMilestone + ' 人（三选一）';
+        // 进度条是「上一段里程碑 → 下一段」之间，段长随时变，所以用两个阈值相减
+        const span = Math.max(1, this.nextMilestone - this.milestonePrev);
+        progress = clamp((p.count - this.milestonePrev) / span, 0, 1);
+        goalText = '下一里程碑：' + this.nextMilestone + ' 人（本段 +' + span + '）';
       } else if (g.type === 'reach') {
         progress = clamp(p.count / g.val, 0, 1);
         goalText = '目标：军团达到 ' + g.val + ' 人';

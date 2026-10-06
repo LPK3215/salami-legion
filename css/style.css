@@ -437,6 +437,32 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 #btn-reward-next{opacity:0;pointer-events:none;transition:opacity .25s ease;}
 #btn-reward-next.show{opacity:1;pointer-events:auto;}
 
+/* ---------------- 无尽里程碑浮层（半透明，不切页，背后的战况仍然可见） ---------------- */
+.ms-overlay{
+  background:rgba(6,10,24,.40);          /* 遮罩透度高于菜单页，重点是「能看见战场」 */
+  backdrop-filter:blur(1.5px) saturate(.92);
+  overflow-y:auto;
+}
+.ms-panel{
+  margin:auto;width:calc(100% - 24px);max-width:760px;
+  display:flex;flex-direction:column;align-items:center;gap:11px;
+  padding:16px 16px 14px;border-radius:22px;
+  background:linear-gradient(180deg,rgba(30,40,82,.80),rgba(15,21,48,.86));
+  border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 22px 54px rgba(0,0,0,.5);
+  animation:msIn .24s cubic-bezier(.2,.9,.3,1.15) both;
+}
+@keyframes msIn{from{opacity:0;transform:translateY(14px) scale(.97);}to{opacity:1;transform:none;}}
+.ms-head{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;}
+.ms-head h2{margin:2px 0 0;font-size:21px;font-weight:900;
+  background:linear-gradient(180deg,#fff,#9fc6ff);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.ms-head .panel-sub{margin:0;}
+.ms-cards .reward-card{flex:1 1 180px;max-width:224px;padding:15px 12px;}
+/* 选完即走：已选的那张留一个短暂的高光，不阻塞回到战场 */
+.ms-cards .reward-card.picked{animation:msPick .36s ease both;}
+@keyframes msPick{0%{transform:translateY(-6px) scale(1.03)}60%{transform:translateY(-10px) scale(1.09)}100%{transform:translateY(-6px) scale(1.03)}}
+.ms-foot{font-size:11px;color:var(--txt-dim);letter-spacing:.4px;}
+
 .lose-face{font-size:56px;font-weight:900;color:#ff7d8c;line-height:1;margin-bottom:6px;
   text-shadow:0 6px 18px rgba(255,90,110,.4);}
 
@@ -519,6 +545,9 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
   .reward-card{flex:1 1 100%;max-width:none;flex-direction:row;text-align:left;padding:14px;flex-wrap:wrap;}
   .rc-icon{flex:0 0 46px;width:46px;height:46px;font-size:20px;}
   .reward-card .rc-title,.reward-card .rc-desc,.reward-card .rc-kind{width:100%;}
+  .ms-panel{padding:13px 12px;gap:8px;border-radius:18px;}
+  .ms-head h2{font-size:18px;}
+  .ms-cards .reward-card{padding:11px 10px;}
 }
 
 /* 矮屏（横屏手机）：优先保证战场可视面积 */
@@ -529,6 +558,10 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
   .count-num{font-size:30px;}
   .enemy-list{max-height:30vh;}
   .hud-bottom{padding-bottom:calc(8px + env(safe-area-inset-bottom));}
+  /* 矮屏下里程碑浮层不撑满：卡片压缩、去掉多余间距 */
+  .ms-panel{gap:7px;padding:10px 12px;}
+  .ms-head h2{font-size:17px;}
+  .ms-foot{display:none;}
 }
 
 /* ---------------- 触屏设备（pointer: coarse）优化 ---------------- */

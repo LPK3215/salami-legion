@@ -263,7 +263,7 @@
         { file: 'CODE_OF_CONDUCT.md', title: '行为准则', quote: 'Contributor Covenant 2.1 精简版' },
         { file: 'AUTHORS', title: '作者与维护者', quote: '署名与贡献者追加规则' },
         { file: 'docs/architecture.svg', title: '架构图（生成）', quote: '架构与数据流，数字运行时取自真源' },
-        { file: 'docs/attrition-mechanic.svg', title: '机制图（生成）', quote: '逐个吞噬与一次性吞并对比' },
+        { file: 'docs/attrition-mechanic.svg', title: '机制图（生成）', quote: '按拍吞噬（擦边逐个吞、覆盖同批吞）与一次性吞并对比' },
         { file: 'docs/content-scale.svg', title: '量级图（生成）', quote: '内容条目数条形图' },
       ];
       var rows = F.docSummaries.map(function (d) {
@@ -397,7 +397,7 @@
   var TIPS = {
     ui: '<b>表现层</b>：所有界面在同一张 <code>index.html</code> 内以 <code>screen</code> 区块切换，样式集中在 <code>css/style.css</code>，脚本按 config → save → audio → engine → ui 的顺序加载，<b>顺序不可调整</b>。',
     cfg: '<b>数据真源 <code>js/config.js</code></b>：关卡、技能、增益、皮肤、成就、开局档位与无尽规则全在这里。<b>加内容优先改这个文件</b>，UI 会自动跟着渲染。',
-    engine: '<b>引擎层 <code>js/engine.js</code></b>：一个 IIFE，只暴露 <code>MiniGame</code> 与 <code>GameUtils</code>。含逐个吞噬的 <code>updateCombat()</code>、按军团对维护的 <code>pairTimers</code>、AI 决策、黄金角螺旋编队、空间网格与 Canvas 渲染。',
+    engine: '<b>引擎层 <code>js/engine.js</code></b>：一个 IIFE，只暴露 <code>MiniGame</code> 与 <code>GameUtils</code>。含按拍吞噬的 <code>updateCombat()</code>（单批量由 <code>engulfedCount()</code> 按圆盘重叠算出）、按军团对维护的 <code>pairTimers</code>、AI 决策、黄金角螺旋编队、空间网格与 Canvas 渲染。',
     mods: '<b>外围模块</b>：<code>ui.js</code> 负责界面流转并接收引擎 hooks；<code>save.js</code> 做存档 merge/persist/reset，老存档字段会自动补全；<code>audio.js</code> 用振荡器合成音效，无音频文件。',
     api: '<b>浏览器能力</b>：Canvas 2D（精灵缓存 + 视口裁剪 + 小地图）、WebAudio（首次交互解锁上下文）、localStorage（键名与产品名解耦，<b>改名不动键</b>）。',
   };

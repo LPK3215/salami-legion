@@ -33,15 +33,15 @@ npm test           # jsdom 端到端测试：真实点击全部界面 + 校验�
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `index.html` | 266 | 页面骨架与各屏 DOM（主菜单 / 准备页 / 对局 HUD / 结算 / 商店 / 成就…） |
-| `css/style.css` | 561 | 全部样式、断点适配、动画；**`:root` 自定义属性是全站配色真源**（图表也读它） |
-| `js/config.js` | 257 | **所有数值与内容的真源**：`CFG`、`SKILLS`、`BUFFS`、`START_OPTIONS`、`SKINS`、`LEVELS`、`ACHIEVEMENTS`、`ENEMY_PALETTES` |
-| `js/engine.js` | 1723 | 核心引擎：`Legion` 类、逐个单位吞噬、编队移动、AI、渲染、输入（鼠标/键盘/虚拟摇杆） |
-| `js/ui.js` | 783 | 界面流转与交互：渲染列表、按钮、结算页、Toast |
+| `index.html` | 284 | 页面骨架与各屏 DOM（主菜单 / 准备页 / 对局 HUD / 结算 / 商店 / 成就…，对局屏内另有一个里程碑浮层） |
+| `css/style.css` | 597 | 全部样式、断点适配、动画；**`:root` 自定义属性是全站配色真源**（图表也读它） |
+| `js/config.js` | 331 | **所有数值与内容的真源**：`CFG`、`SKILLS`、`BUFFS`、`START_OPTIONS`、`SKINS`、`LEVELS`、`ACHIEVEMENTS`、`ENDLESS`、`ENEMY_PALETTES` |
+| `js/engine.js` | 2107 | 核心引擎：`Legion` 类、按拍吞噬（`updateCombat` / `engulfedCount` / `absorbBatch`）、编队移动、AI、渲染、输入（鼠标/键盘/虚拟摇杆） |
+| `js/ui.js` | 873 | 界面流转与交互：渲染列表、按钮、结算页、里程碑浮层、Toast |
 | `js/save.js` | 98 | localStorage 存档读写 |
 | `js/audio.js` | 53 | WebAudio 实时合成音效（无音频文件） |
 | `server.js` | 126 | 零依赖静态服务器（含目录穿越防护、`/healthz`） |
-| `test/dom.test.js` | 564 | jsdom 端到端测试 |
+| `test/dom.test.js` | 933 | jsdom 端到端测试 |
 | `scripts/start.sh` | 56 | CNB 云开发环境幂等启动脚本 |
 | `scripts/visualization/` | — | 图表与览页数据生成器：`lib_load_facts.mjs`（事实层）+ 3 个 `generate_*_svg.mjs`（产物写 `docs/*.svg`）+ `generate_overview_facts.mjs`（产物写 `project_overview/facts.js`） |
 
@@ -70,8 +70,10 @@ const SAVE_KEY = 'mini_legion_save_v1';
 
 1. **运行时零依赖是卖点。** 不要引入任何前端框架、打包器、CDN 脚本、图片/音频资源文件。
    音效必须是 WebAudio 合成，贴图必须是 Canvas 程序绘制。
-2. **`eat.interval = 0.32` 是本作的差异点**（两支军团接触后每 0.32 秒转移 1 个单位，逐个消耗，
-   而非一次吞并整队）。把它改回"一次性吞并"等于删掉这个项目存在的理由，会被直接拒。
+2. **吞噬是「按拍结算」而不是「一次性吞并」**（`CFG.eat`）：每 `interval = 0.32` 秒结算一批，
+   一批的数量 = 输家有多少单位落在赢家的圆盘内（`engulfedCount()`），封顶 `batchMax = 10` 个/批，
+   一个都没被盖住时至少吞 1 个。把这套改成「接触瞬间整队吞并」等于删掉本作存在的理由，会被直接拒；
+   反过来，把 `batchMax` 改成 1 则退回了旧版「擦边也一个一个吃、大兵团对小兵团也要半分钟」的手感。
 3. **跨端操作要同时兼顾三种输入**：鼠标指针跟随、键盘（WASD/方向键，支持双键斜向）、
    移动端虚拟摇杆（多指不互抢）。改输入必须过 `npm test` 里的摇杆/键盘/多指用例。
 4. **数值改动要同步文档。** 改了 `config.js` 的关卡/技能/皮肤/成就数值，必须同步
@@ -128,17 +130,17 @@ const SAVE_KEY = 'mini_legion_save_v1';
 npm test
 ```
 
-会真实驱动界面：主菜单 → 关卡选择 → 商店 → 成就 → 准备页 → 对局 → 逐个吞噬校验 →
+会真实驱动界面：主菜单 → 关卡选择 → 商店 → 成就 → 准备页 → 对局 → 按拍吞噬校验（擦边逐个吞 / 覆盖同批吞）→
 摇杆/键盘/多指 → 通关结算与三选一 → 暂停 → 无尽里程碑 → 失败流程，最后打印 `全部通过 ✓`。
 
 ### 时间相关用例必须用固定步长（`ticks`），不要用 `frames`
 
-**历史问题**：§9「逐个单位吞噬」曾长期抖动，三种随机失败都源自同一根因 ——
+**历史问题**：§9「吞噬机制」用例曾长期抖动，三种随机失败都源自同一根因 ——
 测试用 `frames(n)` 只数帧、不管每帧实际走了多久：
 
 - 引擎主循环里 `dt = (rAF 时间戳 − lastT)/1000`，并 `clamp` 到 `0.05s`；
   于是「20 帧」实际推进的游戏时长会在约 `0.02s ~ 1.0s` 之间随机器负载浮动，
-  而吞噬节奏是 `CFG.eat.interval = 0.32s / 1 个单位`。
+  而吞噬节奏是 `CFG.eat.interval = 0.32s / 一批`。
 
 | 曾经出现的失败文案 | 实际发生了什么 |
 |---|---|
@@ -153,7 +155,7 @@ npm test
 const ticks = (game, n, dt) => { for (let i = 0; i < n; i++) game.update(dt || 0.02); };
 ```
 
-- 与时间强相关的用例（逐个吞噬、反向吞噬、收编中立小人、无尽里程碑）一律走 `ticks(game, n, dt)`，
+- 与时间强相关的用例（按拍吞噬、反向吞噬、收编中立小人、无尽里程碑）一律走 `ticks(game, n, dt)`，
   **步长按秒给**（`0.02s`），帧预算也换算成秒；
 - `ticks()` 里**必须同时调用 `render(dt)`**：镜头跟随与缩放是在 `render()` 里推进的
   （`update()` 只算 `cam.tzoom`），只跑 `update()` 会让镜头停在旧位置，

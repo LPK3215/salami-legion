@@ -131,6 +131,9 @@ const facts = {
     maxUnits: cfg.CFG.maxUnits,
     unitTotalMax: cfg.CFG.unitTotalMax,
     neutralMax: cfg.CFG.neutralMax,
+    endless: cfg.ENDLESS,
+    // 里程碑阈值序列真源：endlessMilestoneStep()，页面不手抄前几个档位
+    milestoneThresholds: cfg.endlessMilestoneThresholds(7),
     pickup: cfg.CFG.pickup,
     zoom: cfg.CFG.zoom,
     move: cfg.CFG.move,

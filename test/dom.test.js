@@ -67,7 +67,7 @@ const harness = `
 (async () => {
   // eval 的作用域与浏览器 <script> 不同，显式取出页面脚本暴露的全局
   const { UI, Save, LEVELS, SKINS, SKILLS, SKILL_LIST, START_OPTIONS, ACHIEVEMENTS,
-          ENDLESS, endlessViewRadius, CFG, MiniGame } = window.__APP__;
+          ENDLESS, endlessViewRadius, endlessMilestoneStep, endlessMilestoneThresholds, CFG, MiniGame } = window.__APP__;
   const log = [];
   const ok = (m) => log.push('  ✓ ' + m);
   const assert = (c, m) => { if (!c) throw new Error('断言失败: ' + m); };
@@ -350,7 +350,7 @@ const harness = `
     assert(g.status === 'playing', '收编测试后对局应仍在进行，实际 ' + g.status);
     ok('中立小人可被收编：' + c0 + ' 人 -> ' + p.count + ' 人');
 
-    /* ========== 9. 核心机制：逐个单位吞噬 ========== */
+    /* ========== 9. 核心机制：按拍吞噬（擦边逐个吞 · 覆盖同批吞） ========== */
     // 隔离环境：清空中立小人，避免双方边打边收编干扰断言
     const savedNeutrals = g.neutrals;
     g.neutrals = [];
@@ -360,30 +360,44 @@ const harness = `
 
     const foe = g.legions.find((L) => !L.isPlayer);
     assert(foe, '找不到可用于测试的敌军团');
-    foe.alive = true;
-    foe.ai = null;                 // 固定不动，保证稳定接触
-    foe.clearUnits();
-    foe.cx = p.cx + 30; foe.cy = p.cy;
-    foe.target.x = foe.cx; foe.target.y = foe.cy;
-    for (let i = 0; i < 3; i++) foe.addUnit(foe.cx + i * 4, foe.cy);
-    p.target.x = foe.cx; p.target.y = foe.cy;
+    p.target.x = p.cx; p.target.y = p.cy;   // 我方原地不动，只观察吞噬节奏
 
-    const beforeEat = p.count;
-    const foeBefore = foe.count;
-    const snapshots = [];
-    for (let i = 0; i < 20; i++) {
-      ticks(g, 20);
-      snapshots.push({ foe: foe.count, me: p.count });
-      if (foe.count === 0) break;
-    }
-    assert(foeBefore === 3, '测试敌军团初始应为 3 人');
-    assert(foe.count === 0, '敌方应被杀光，实际剩 ' + foe.count + '（我方 ' + p.count + '）');
-    assert(p.count === beforeEat + 3, '我方应恰好 +3 人（逐个并入），实际 ' + beforeEat + ' -> ' + p.count);
-    const drops = snapshots.filter((s, i) => i > 0 && s.foe < snapshots[i - 1].foe).length;
-    assert(drops >= 2, '应为多帧逐个消耗，而非一次性吞并，递减次数=' + drops);
-    ok('逐个单位吞噬生效：敌 3 人 → 分 ' + drops + ' 次逐个并入我方，我方 ' + beforeEat + ' -> ' + p.count + ' 人');
+    /* 摆一支 n 人敌军在与我方圆心相距 dist 的位置，推进「一拍」，返回这一拍同批吞了几个 */
+    const oneTickBatch = (n, dist) => {
+      while (p.units.length > 6) p.units.pop();
+      while (p.units.length < 6) p.addUnit(p.cx, p.cy);
+      foe.alive = true;
+      foe.ai = null;                 // 固定不动，保证稳定接触
+      foe.clearUnits();
+      foe.cx = p.cx + dist; foe.cy = p.cy;
+      foe.target.x = foe.cx; foe.target.y = foe.cy;
+      for (let i = 0; i < n; i++) foe.addUnit(foe.cx + (i % 3) * 5, foe.cy + Math.floor(i / 3) * 5);
+      const engulfed = g.engulfedCount(foe, p);   // 被我方圆盘「盖住」的那几个
+      g.pairTimers.clear();                       // 从零开始攒这一拍
+      const before = foe.count, mine = p.count;
+      ticks(g, 20);                               // 20 × 0.02s = 0.4s → 正好一拍（间隔 0.32s）
+      return { eaten: before - foe.count, gained: p.count - mine, engulfed: engulfed };
+    };
 
-    // 反向验证：我方人数劣势时应被逐个吞掉
+    // 先摆一次 6 vs 4（拉远到不接触）取样双方圆盘半径，再据此算出「刚好相切」的距离
+    // （人数必须拉开差距：两边相等时对等干瞪眼，谁也吞不了谁）
+    oneTickBatch(4, 200);
+    const grazeDist = Math.round((p.radius + foe.radius) * CFG.eat.contact * 0.97);
+    const graze = oneTickBatch(4, grazeDist);
+    const deep = oneTickBatch(4, 6);
+
+    assert(graze.engulfed === 0, '擦边场景下不该有敌军单位被我方圆盘盖住，实际 ' + graze.engulfed + ' 个');
+    assert(graze.eaten === 1, '擦边接触应一拍只吞 1 个（一个一个地吃），实际 ' + graze.eaten + ' 个');
+    assert(deep.engulfed === 4, '覆盖场景下整支敌军应落在我方圆盘内，实际只有 ' + deep.engulfed + ' 个');
+    assert(deep.eaten === 4, '被盖住的部分应同批吸收，实际一拍只吞了 ' + deep.eaten + ' 个');
+    assert(deep.eaten <= Math.round(CFG.eat.batchMax * Math.max(1, p.atkMul || 1)),
+      '同批吸收不应超过单批上限，实际一拍吞了 ' + deep.eaten + ' 个');
+    assert(graze.eaten === graze.gained && deep.eaten === deep.gained,
+      '被吞的单位必须全部转入我方，不能凭空消失');
+    ok('按拍吞噬生效：擦边一拍吞 ' + graze.eaten + ' 个 · 盖住 ' + deep.engulfed +
+       ' 个时一拍同批吞 ' + deep.eaten + ' 个（单批上限 ' + CFG.eat.batchMax + '）');
+
+    // 反向验证：我方人数劣势时会被同批持续吞掉，但一批仍受单批上限约束（不会瞬间清空）
     // 注意：人数必须低于本关目标（第 1 关为 15 人），否则会立刻通关导致主循环停止
     while (p.count < 12) p.addUnit(p.cx, p.cy);
     assert(p.count < (g.level.goal.val || 9999), '测试人数应低于关卡目标，避免提前通关');
@@ -397,15 +411,22 @@ const harness = `
     const meBeforeLose = p.count;
     const foeBig = foe.count;
     let minMe = meBeforeLose;
+    let maxDrop = 0;
+    let prevMe = meBeforeLose;
     for (let i = 0; i < 6; i++) {
       ticks(g, 20);
+      maxDrop = Math.max(maxDrop, prevMe - p.count);
+      prevMe = p.count;
       minMe = Math.min(minMe, p.count);
-      // 验证的是「劣势会被逐个吞掉」，不是「一定被吞光」，留 4 人保底不触发失败流程
+      // 验证的是「劣势会被一批一批吞掉」，不是「一定被吞光」，留 4 人保底不触发失败流程
       if (g.status !== 'playing' || p.count <= 4) break;
     }
-    assert(minMe < meBeforeLose, '人数劣势时应被敌方逐个吞掉，实际 ' + meBeforeLose + ' -> ' + minMe);
+    assert(minMe < meBeforeLose, '人数劣势时应被敌方持续吞掉，实际 ' + meBeforeLose + ' -> ' + minMe);
     assert(minMe > 0, '测试中我方不应全灭');
-    ok('反向吞噬生效：敌 ' + foeBig + ' 人 > 我方 ' + meBeforeLose + ' 人，我方被逐个吞至 ' + minMe + ' 人');
+    assert(maxDrop <= Math.round(CFG.eat.batchMax),
+      '被吞也必须按拍结算、单批不超上限，实际一拍掉了 ' + maxDrop + ' 人（上限 ' + CFG.eat.batchMax + '）');
+    ok('反向吞噬生效：敌 ' + foeBig + ' 人 > 我方 ' + meBeforeLose + ' 人，我方被一批一批吞至 ' +
+       minMe + ' 人（一拍最多掉 ' + maxDrop + ' 个，不会瞬间清空）');
 
     // 恢复环境（保持人数低于关卡目标，后续步骤再触发通关）
     g.neutrals = savedNeutrals;
@@ -500,9 +521,28 @@ const harness = `
     assert(ge.level.goal.type === 'endless', '无尽模式目标类型应为 endless，实际 ' + ge.level.goal.type);
     const STEP = ge.level.goal.step;
     const e1WorldW = ge.world.w;
+    // 动态地图那一大段校验会长时间跑图，途中很容易凑到首个里程碑；
+    // 先挂起弹窗，保证那些断言跑完再回到「里程碑 → 三选一」的正常流程
+    ge.nextMilestone = 1e9;
 
     /* ---- 动态地图：世界框必须是以玩家为圆心的实时战场，不是写死尺寸的棋盘 ---- */
     assert(ge.dynWorld === true, '无尽模式应启用动态地图（以玩家为中心）');
+    /* ---- 人数上限：单军团上限是可调参数，真正带住帧率的是全场总量闸门 ---- */
+    assert(CFG.unitTotalMax > CFG.maxUnits,
+      '全场总量闸门应高于单军团上限，实际 ' + CFG.unitTotalMax + ' / ' + CFG.maxUnits);
+    assert(typeof ge.totalUnits === 'function' && ge.totalUnits() >= ge.player.count,
+      '全场单位总量读数应可用，实际 ' + (ge.totalUnits && ge.totalUnits()));
+    /* ---- 里程碑递增：只上提不回退，并最终封顶 ---- */
+    for (let i = 1; i < 12; i++) {
+      assert(endlessMilestoneStep(i + 1) >= endlessMilestoneStep(i),
+        '里程碑增量不应回退：第 ' + i + ' 段 ' + endlessMilestoneStep(i) +
+        ' → 第 ' + (i + 1) + ' 段 ' + endlessMilestoneStep(i + 1));
+    }
+    assert(endlessMilestoneStep(0) === ENDLESS.milestoneFirst, '首个里程碑应只要 ' + ENDLESS.milestoneFirst + ' 人');
+    assert(endlessMilestoneStep(60) === ENDLESS.milestoneStepMax,
+      '增量最终应封顶在 ' + ENDLESS.milestoneStepMax + '，实际 ' + endlessMilestoneStep(60));
+    ok('里程碑递增序列：' + endlessMilestoneThresholds(6).join(' → ') + ' …（单军团上限 ' +
+       CFG.maxUnits + ' 人，全场总量闸门 ' + CFG.unitTotalMax + ' 人）');
     const wc0 = ge.world.x + ge.world.w / 2, hc0 = ge.world.y + ge.world.h / 2;
     assert(Math.abs(wc0 - ge.player.cx) < 2 && Math.abs(hc0 - ge.player.cy) < 2,
       '战场中心未跟随玩家：中心(' + wc0.toFixed(0) + ',' + hc0.toFixed(0) +
@@ -568,47 +608,58 @@ const harness = `
     ge.player.cx -= jumpX; ge.player.cy -= jumpY;
     ge.player.target.x = ge.player.cx; ge.player.target.y = ge.player.cy;
     ticks(ge, 3);
-    ok('无尽模式启动：单局连续对局 · 每 ' + STEP + ' 人一次三选一 · 战场 ' + ge.world.w + '×' + ge.world.h);
+    ge.nextMilestone = STEP;                 // 恢复首个里程碑
+    ok('无尽模式启动：单局连续对局 · 首个里程碑 ' + STEP + ' 人，之后每段增量逐段上提 · 战场 ' + ge.world.w + '×' + ge.world.h);
 
-    // 达到第一个里程碑 → 暂停并弹出三选一
+    // 达到第一个里程碑 → 不切页，直接在战场上浮出半透明三选一
     while (ge.player.count < STEP) ge.player.addUnit(ge.player.cx, ge.player.cy);
     await frames(30);
-    assert(active('screen-reward'), '里程碑达成后未弹出奖励页');
+    assert(active('milestone-overlay'), '里程碑达成后未浮出三选一遮罩');
+    assert(active('screen-game'), '里程碑应浮在战场之上，不能切走对局画面');
+    // 浮层必须是 #screen-game 的后代：这样它天然只会半透明地盖在画布上，而不是遮住整个页面
+    const msOv = $('milestone-overlay');
+    assert(msOv && msOv.closest('#screen-game') === $('screen-game'),
+      '里程碑浮层应挂在对局画面内部（不遮挡整页）');
+    assert(!active('screen-reward'), '里程碑不应再走整页结算（会把战场全部遮住）');
     assert(ge.status === 'milestone', '里程碑期间对局应冻结，实际 ' + ge.status);
-    // 里程碑按「>= 阈值」触发，同一帧里顺路多吃一个中立小人也是正常的（峰值 50 或 51）
+    // 里程碑按「>= 阈值」触发，同一帧里顺路多吃一个中立小人也是正常的
     assert(Save.data.stats.endlessBest >= STEP, '最高人数纪录未更新，实际 ' + Save.data.stats.endlessBest);
-    assert(String($('reward-title').textContent).indexOf('里程碑') >= 0,
-      '结算标题应体现里程碑，实际 ' + $('reward-title').textContent);
-    const cards2 = document.querySelectorAll('#reward-cards .reward-card');
+    assert(String($('ms-title').textContent).indexOf('里程碑') >= 0,
+      '浮层标题应体现里程碑，实际 ' + $('ms-title').textContent);
+    const cards2 = document.querySelectorAll('#ms-cards .reward-card');
     assert(cards2.length === 3, '无尽奖励仍应为三选一');
     const cardText = Array.prototype.map.call(cards2, c => c.textContent).join('|');
     assert(cardText.indexOf('解锁开局') < 0, '无尽里程碑不应出现「解锁开局人数」卡');
-    click(cards2[0], '无尽奖励卡');
-    assert(String($('btn-reward-next').textContent).indexOf('继续') >= 0,
-      '无尽模式按钮文案应为「继续无尽挑战」，实际 ' + $('btn-reward-next').textContent);
-    ok('里程碑结算：三选一正常 · 纪录 ' + Save.data.stats.endlessBest + ' 人 · 按钮文案正确');
+    ok('里程碑浮层：半透明浮在战场上 · 三选一正常 · 纪录 ' + Save.data.stats.endlessBest + ' 人');
 
-    // 继续：必须是同一场对局、人数不重置
+    // 点一张卡 → 当场生效，短暂高光后自动回到战场，不需要再点「下一步」
     const countBefore = ge.player.count;
-    click($('btn-reward-next'), 'btn-reward-next');
-    await wait(120);
-    assert(active('screen-game'), '继续后未回到对局画面');
+    click(cards2[0], '里程碑奖励卡');
+    assert(cards2[0].classList.contains('picked'), '奖励卡未进入已选状态');
+    assert(UI.msChosen === true, '点卡后应当场落定选择');
+    await wait(600);
+    assert(!active('milestone-overlay'), '选完奖励后浮层应自动收起');
+    assert(ge.status === 'playing', '选完奖励后对局应自动恢复，实际 ' + ge.status);
+    assert(active('screen-game'), '选完奖励后应仍在对局画面');
     assert(UI.game === ge, '无尽模式应沿用同一场对局，而不是重开');
-    assert(ge.status === 'playing', '继续后对局应恢复运行，实际 ' + ge.status);
     assert(ge.player.count >= countBefore, '继续后人数不应重置（' + countBefore + ' → ' + ge.player.count + '）');
-    assert(ge.nextMilestone === STEP * 2, '下一个里程碑应为 ' + (STEP * 2) + '，实际 ' + ge.nextMilestone);
+    const M2 = STEP + ENDLESS.milestoneStepBase;
+    assert(ge.nextMilestone === M2, '第二个里程碑应为 ' + M2 + ' 人，实际 ' + ge.nextMilestone);
+    ok('点卡即生效：无需「下一步」，' + countBefore + ' 人直接接着打，下一段 ' + M2 + ' 人');
 
-    // 第二个里程碑同样触发，且动态战场随规模继续扩大
-    while (ge.player.count < STEP * 2) ge.player.addUnit(ge.player.cx, ge.player.cy);
+    // 第二段的要求比第一段更高，且动态战场随规模继续扩大
+    const M3 = M2 + ENDLESS.milestoneStepBase + ENDLESS.milestoneStepGrowth;
+    while (ge.player.count < M2) ge.player.addUnit(ge.player.cx, ge.player.cy);
     await frames(30);
-    assert(active('screen-reward'), '第二个里程碑未弹出奖励页');
+    assert(active('milestone-overlay'), '第二个里程碑未浮出奖励遮罩');
     assert(ge.dynR >= arenaR, '战场半径不应缩小');
     assert(ge.world.w >= e1WorldW, '战场不应缩小');
-    ok('里程碑推进：' + (STEP * 2) + ' 人 · 战场半径 ' + Math.round(ge.dynR) +
+    ok('里程碑推进：' + M2 + ' 人（下一段 ' + M3 + ' 人）· 战场半径 ' + Math.round(ge.dynR) +
        'px（框 ' + ge.world.w + '×' + ge.world.h + '）· 同一场对局人数累积不重置');
-    click(document.querySelectorAll('#reward-cards .reward-card')[0], '无尽奖励卡2');
-    click($('btn-reward-next'), 'btn-reward-next');
-    await wait(120);
+    click(document.querySelectorAll('#ms-cards .reward-card')[0], '里程碑奖励卡2');
+    await wait(600);
+    assert(ge.nextMilestone === M3, '里程碑增量应逐段递增，第三段应为 ' + M3 + '，实际 ' + ge.nextMilestone);
+    assert(ge.status === 'playing', '第二个里程碑选完未回到对局');
 
     assert(UI.run && UI.run.mode === 'endless', 'run.mode 应为 endless');
     assert(String($('hud-level').textContent).indexOf('无尽') >= 0, 'HUD 关卡标题未体现无尽');
@@ -833,6 +884,7 @@ const source = SCRIPTS.map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8')).j
   + '\n;window.__APP__ = { UI: UI, Save: Save, LEVELS: LEVELS, SKINS: SKINS, SKILLS: SKILLS,' +
     ' SKILL_LIST: SKILL_LIST, START_OPTIONS: START_OPTIONS, ACHIEVEMENTS: ACHIEVEMENTS,' +
     ' ENDLESS: ENDLESS, endlessViewRadius: endlessViewRadius,' +
+    ' endlessMilestoneStep: endlessMilestoneStep, endlessMilestoneThresholds: endlessMilestoneThresholds,' +
     ' CFG: CFG, MiniGame: MiniGame };\n';
 
 try {

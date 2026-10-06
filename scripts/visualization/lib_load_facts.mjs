@@ -39,7 +39,7 @@ function readConfig() {
   const src = read('js/config.js');
   const sandbox = { console };
   const picked = vm.runInNewContext(
-    src + '\n;({ CFG, SKILLS, SKILL_LIST, BUFFS, SKINS, LEVELS, ACHIEVEMENTS, START_OPTIONS, ENEMY_PALETTES })',
+    src + '\n;({ CFG, SKILLS, SKILL_LIST, BUFFS, SKINS, LEVELS, ACHIEVEMENTS, START_OPTIONS, ENEMY_PALETTES, ENDLESS, endlessMilestoneThresholds })',
     sandbox,
     { filename: 'js/config.js', timeout: 5000 }
   );
@@ -128,6 +128,9 @@ export function loadFacts() {
     mechanics: {
       eatInterval: cfg.CFG.eat.interval,
       eatContact: cfg.CFG.eat.contact,
+      eatBatchMax: cfg.CFG.eat.batchMax,
+      // 无尽里程碑：只把「首段门槛」作为事实读给图表，段长公式留在 config 里
+      milestoneFirst: cfg.ENDLESS.milestoneFirst,
       worldW: cfg.CFG.world.w,
       worldH: cfg.CFG.world.h,
       unitRadius: cfg.CFG.unit.r,

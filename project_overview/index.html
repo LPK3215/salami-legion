@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./style.css?v=20261004">
+<link rel="stylesheet" href="./style.css?v=20261006">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -103,13 +103,16 @@
           <p>军团 / 人群类 IO 游戏的通行规则是<strong>接触即整队吞并</strong>：两支军团撞上，
             人数少的一方一瞬间全没了。于是游戏退化成「谁先变大谁碾压」，
             碰撞的瞬间就宣判结果，中间过程没有决策。</p>
-          <p>本作把这条规则改掉：接触后<strong>每 <em data-fact="mechanics.eatInterval"></em> 秒才转移 1 个单位</strong>，
-            逐个持续消耗，直到一方清零。碰撞不再是终点判决，而是一段<strong>可以被打断、可以反打、可以撤退</strong>的过程。</p>
+          <p>本作把这条规则改掉：接触后<strong>每 <em data-fact="mechanics.eatInterval"></em> 秒才结算一批</strong>，
+            一批的数量 = 对面有多少小人已经被你盖在自己的圆盘里（上限
+            <em data-fact="mechanics.eatBatchMax"></em> 个/批，一个都没盖住则只转 1 个），直到一方清零。
+            碰撞不再是终点判决，而是一段<strong>可以被打断、可以反打、可以撤退</strong>的过程。</p>
         </div>
         <div class="card">
           <h3>由此产生的玩法深度</h3>
           <ul class="ticks">
             <li><b>撤退真的有用</b>：脱离接触会把这对军团的吞噬计时器重置为满，「跑掉再回来」不带半个节拍。</li>
+            <li><b>接触方式决定吞吐速度</b>：把对方盖进自己的圆盘里，一拍同批吞好几个；平行擦边则一拍只掉 1 个。</li>
             <li><b>势均力敌会僵持</b>：人数相等时不产生吞噬，只能绕开或先吃掉弱者滚雪球。</li>
             <li><b>多方接触并行消耗</b>：计时器按「军团对」独立维护，被两支队伍夹击时是同时挨两路啃。</li>
             <li><b>数值判断重于操作</b>：绿色标记（人少）冲、红色标记（人多）跑，读盘比手速值钱。</li>
@@ -172,7 +175,7 @@
             <text x="34" y="222" class="lt">引擎层</text>
             <rect x="150" y="190" width="930" height="66" rx="10" class="nd purple"/>
             <text x="615" y="216" class="nd-t">js/engine.js —— IIFE，仅向 window 暴露 MiniGame / GameUtils</text>
-            <text x="615" y="238" class="nd-s">Legion 类 · updateCombat 逐个吞噬 · AI · 编队（黄金角螺旋站位）· 空间网格 · 渲染</text>
+            <text x="615" y="238" class="nd-s">Legion 类 · updateCombat 按拍吞噬（盖住同批吞）· AI · 编队（黄金角螺旋站位）· 空间网格 · 渲染</text>
           </g>
           <g class="layer" data-node="mods">
             <text x="34" y="316" class="lt">外围模块</text>
@@ -240,12 +243,13 @@
 
     <!-- ============ 核心机制 ============ -->
     <section class="sec" id="mechanic">
-      <h2>核心机制 · 逐个单位吞噬</h2>
+      <h2>核心机制 · 按拍吞噬（擦边逐个吞 · 覆盖同批吞）</h2>
       <div class="grid-2">
         <div class="card">
           <h3>两种规则的差别（同一时间尺）</h3>
           <div class="chart-box"><canvas id="chartAttrition" height="230"></canvas></div>
-          <p class="dim tiny">曲线由 <code>charts.js</code> 依 <code>CFG.eat.interval</code> 实时绘制；双方初始人数为机制示意值（敌 5 / 我 3）。</p>
+          <p class="dim tiny">曲线由 <code>charts.js</code> 依 <code>CFG.eat.interval</code> 实时绘制，画的是<strong>擦边场景</strong>（每拍 1 个）；
+            双方初始人数为机制示意值（敌 5 / 我 3）。同一坐标下把对方盖进圆盘，每拍会按被盖住的个数同批转移（上限 <code>CFG.eat.batchMax</code>）。</p>
         </div>
         <div class="card">
           <h3>实现原文（<code>js/engine.js</code> · <code>updateCombat()</code>）</h3>
@@ -253,8 +257,9 @@
           <ul class="ticks">
             <li><code>pairTimers</code> 按军团对维护 —— 多路接触各自独立消耗。</li>
             <li>脱离接触即把该对计时器重置为满 —— 逃生机制成立的基础。</li>
-            <li><code>absorb()</code> 挑最靠近接触点的单位，前线的先掉。</li>
-            <li>调整节奏只改 <code>CFG.eat.interval</code>（全局）或 <code>atkRate</code>（局部）。</li>
+            <li><code>absorb()</code> 挑最靠近赢家圆心的单位，所以一批里天然先吞被包得最深的那几个。</li>
+            <li>同批第 2 个起只保留粒子不重复报音效（<code>absorbBatch()</code> 传 <code>quiet</code>）。</li>
+            <li>调整节奏改 <code>CFG.eat.interval</code>（全局）或 <code>atkRate</code>（局部）；调整批量改 <code>CFG.eat.batchMax</code>。</li>
           </ul>
         </div>
       </div>
@@ -314,15 +319,16 @@
       <div class="card">
         <h3>无尽模式的生成规则</h3>
         <p>无尽模式<b>没有「层」</b>：只有一份由 <code>makeEndlessLevel()</code> 生成的关卡对象（<code>dynamicWorld: true</code>），
-          全程同一场对局，人数只增不减；每满 <code>ENDLESS.step</code>（50）人暂停一次三选一，
-          <code>resumeFromMilestone()</code> 直接回到同一场继续。
+          全程同一场对局，人数只增不减；达成一个里程碑就暂停一次三选一（首个
+          <code>ENDLESS.milestoneFirst</code> = 10 人，之后每段增量由 <code>endlessMilestoneStep()</code> 逐段上提），
+          <code>resumeFromMilestone()</code> 直接回到同一场对局续战。
           <b>地图是以玩家为中心的动态战场</b>（<code>updateDynamicWorld() + streamWorld()</code>，走到哪生成到哪），
           敌军按<b>人数 + 时间</b>每秒对齐，两者都不按层数。</p>
         <div class="table-wrap">
   <table class="tbl">
     <thead><tr><th>项</th><th>规则</th></tr></thead>
     <tbody>
-      <tr><td>里程碑</td><td>每满 <code>ENDLESS.step = 50</code> 人 → 冻结对局（<code>status = 'milestone'</code>）→ 三选一 → 原场继续</td></tr>
+      <tr><td>里程碑</td><td>第一段 <code>milestoneFirst = 10</code> 人，之后增量 = <code>min(150, 40 + (n-1)×10)</code> → 阈值 10 / 50 / 100 / 160 / 230 …（只上提不回退）→ 冻结对局（<code>status = 'milestone'</code>）→ 战场上浮出半透明三选一 → <b>点卡即生效</b>原场继续</td></tr>
       <tr><td>动态地图半径</td><td><code>clamp(1500 + 人数 × 1.6, 1400, 2600)</code>，且不小于屏幕对角线的一半；世界框每帧重算为「以玩家为中心、边长 2R」</td></tr>
       <tr><td>内容存续</td><td>超出 <code>R × 1.18</code> 的中立小人/装饰物回收，在 <code>0.42R ~ 0.96R</code> 环带补新；无硬边界、无墙</td></tr>
       <tr><td>敌军支数</td><td><code>min(2 + ⌊峰值人数 / 45⌋, 7)</code>，阵亡或溃逃自动补位（<code>1.25R</code> 外判溃逃）</td></tr>
@@ -455,7 +461,7 @@ npm run overview:data      # 重新生成本页数据</pre><button class="copy">
           <li>用 jsdom 加载<b>真实 <code>index.html</code></b>，按 <code>&lt;script&gt;</code> 顺序执行全部游戏脚本；</li>
           <li>给 Canvas 打桩（jsdom 无绘图能力），其余逻辑全部真跑；</li>
           <li>模拟真实用户点击，遍历主菜单 / 关卡选择 / 商店 / 成就 / 说明 / 出征准备；</li>
-          <li>进入对局后验证：滑动控制、收编中立小人、<b>逐个吞噬（正向与反向）</b>、技能、暂停继续、通关结算与三选一、关卡推进、<b>无尽模式（动态战场随玩家平移与规模变大、对玩家零边界限制、渲染不画任何边界/场地圈、50 人里程碑暂停三选一后原场继续、人数不重置、全灭结算报峰值人数）</b>、失败流程、商店购买、存档持久化；</li>
+          <li>进入对局后验证：滑动控制、收编中立小人、<b>按拍吞噬（擦边一拍吞 1 个 / 盖住则同批吞一批 / 反向被吞时单批不超上限）</b>、技能、暂停继续、通关结算与三选一、关卡推进、<b>无尽模式（动态战场随玩家平移与规模变大、对玩家零边界限制、渲染不画任何边界/场地圈、里程碑递增序列只上提不回退、半透明浮层不切页且点卡即续战、人数不重置、全灭结算报峰值人数）</b>、失败流程、商店购买、存档持久化；</li>
           <li>与时间强相关的用例走 <code>ticks(game, n, dt)</code> 固定步长推进，不依赖 rAF 的墙钟步长，结果可复现；</li>
           <li><b>技能/增益「描述 = 实效」校验</b>：构造受控对局逐条量测引擎实际值（7 条增益的数值、6 个技能的范围与秒数），
           防止 <code>desc</code> 变成假承诺；同时断言关卡模式渲染 1 条边界、无尽模式渲染 0 条边界与 0 个场地圈。</li>
@@ -548,9 +554,9 @@ npm run overview:data      # 重新生成本页数据</pre><button class="copy">
 <button class="to-top" id="toTop" title="返回顶部">↑</button>
 <div class="toast" id="toast"></div>
 
-<script src="./facts.js?v=20261004"></script>
-<script src="./charts.js?v=20261004"></script>
-<script src="./script.js?v=20261004"></script>
+<script src="./facts.js?v=20261006"></script>
+<script src="./charts.js?v=20261006"></script>
+<script src="./script.js?v=20261006"></script>
 
 <!--
   生成工具：Qoder 智能体 + scripts/visualization/generate_overview_facts.mjs

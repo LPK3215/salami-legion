@@ -94,7 +94,7 @@ new MiniGame({
 | `onHud(data)` | 见下 | 每 ~0.1 秒推送一次，用于刷新 HUD |
 | `onWin(res)` | 结算结果 | 达成目标 |
 | `onLose(res)` | 结算结果（含 `reason`） | 我方人数归零 |
-| `onMilestone(res)` | 同 `onLose` 结构 + `milestone` / `threshold` | 无尽模式每满 `step` 人（对局不结束） |
+| `onMilestone(res)` | 同 `onLose` 结构 + `milestone` / `threshold` | 无尽模式达成里程碑（对局不结束；段长由 `endlessMilestoneStep()` 逐段上提） |
 | `onInput()` | — | 玩家首次触摸/点击（用于解锁音频） |
 | `onLegionDown(legion)` | 被消灭的军团 | 某支敌军被吃光 |
 
@@ -114,7 +114,7 @@ new MiniGame({
 ```
 
 **对外方法**：`start()` / `pause()` / `resume()` / `resumeFromMilestone()` /
-`useSkill()` / `resize()` / `destroy()`
+`useSkill()` / `resize()` / `destroy()` / `totalUnits()`（全场单位总量，供 `CFG.unitTotalMax` 校验）
 
 ### 3.2 每帧更新顺序（`update(dt)`）
 
@@ -126,7 +126,7 @@ new MiniGame({
      updateLegion()      算速度修正 → 移动军团中心 → 单位跟随编队 → 临时援军到期
 4. buildUnitGrid()      把所有单位塞进空间网格（格子 46px）
 5. updateNeutrals()     中立小人游荡 + 被收编判定（查 3×3 邻域网格）
-6. updateCombat()       军团两两接触判定 + 逐个吞噬
+6. updateCombat()       军团两两接触判定 + 按拍吞噬（盖住多少同批吞多少）
 7. updateFx()           技能计时、冷却
 8. updateParticles()    粒子与飘字
 9. updateCamera()       镜头跟随、缩放、危险度
@@ -136,7 +136,7 @@ new MiniGame({
 13. checkGoal()         判定胜负（无尽 → 里程碑）
 ```
 
-### 3.3 战斗核心：逐个单位吞噬
+### 3.3 战斗核心：按拍吞噬，盖住多少吞多少
 
 ```js
 // updateCombat() 摘录
@@ -148,19 +148,26 @@ if (t > 0) { pairTimers.set(key, t); continue; }                          // 未
 const big = A.count > B.count ? A : B;
 const small = A.count > B.count ? B : A;
 pairTimers.set(key, EAT_INTERVAL / atkRate);                              // 受「吞噬速度」影响
-this.absorb(small, big);                                                  // 转移 1 个单位
+// 一批吞几个 = 输家有多少单位落在赢家的圆盘内（至少 1 个，封顶 batchMax）
+const cap = Math.max(1, Math.round(CFG.eat.batchMax * Math.max(1, atkRate)));
+const batch = Math.min(cap, this.engulfedCount(small, big));
+this.absorbBatch(small, big, batch);                                      // 同批转移 batch 个单位
 ```
 
 **关键设计点**：
 - `pairTimers` 是**按军团对（pair）维护**的 Map，所以一个军团同时接触多支敌军时，
   每一对都独立按自己的节奏消耗。
 - 脱离接触会把该对的计时器**重置为满**，所以「跑掉再回来」不会带着半个节拍，这是逃生机制成立的基础。
-- `absorb()` 挑的是**最靠近接触点**的单位（前线），受击效果更自然。
-- 想让吞噬更快/更慢，改 `CFG.eat.interval` 即可（全局），或通过 `atkRate` 做局部调整。
+- `engulfedCount(loser, winner)` 是 O(输家单位数)，**只在到拍时算一次**（不是每帧），
+  所以加了这个判定也不会把主循环变成 O(n²)。
+- `absorb()` 挑的是**最靠近赢家圆心**的单位（前线），所以一批里面天然先吞被包得最深的那几个；
+  同批的第 2 个起传 `quiet = true`，音效与飘字每批只报一次，避免一拍刷出十声「吃」。
+- 节拍由 `CFG.eat.interval` 控制，单批量由 `CFG.eat.batchMax` 控制；想局部加快就动 `atkRate`
+  （狂暴吞噬 / 狼吞虎咽），它同时压缩节拍与抬高单批上限。
 
 ### 3.4 编队与移动
 
-- 站位表 `SLOTS` 在模块加载时用**黄金角螺旋**预生成（最多 900 个位置），
+- 站位表 `SLOTS` 在模块加载时用**黄金角螺旋**预生成（最多 `CFG.maxUnits` = 1500 个位置），
   所以单位下标 `i` 直接对应一个固定站位，增减单位时军团会自然「重新收紧」。
 - 军团中心是独立运动的「指挥官」，单位用**指数平滑**追自己的站位（`k = 1 - exp(-11*dt)`），
   落后越多追得越快（最高 `CFG.move.unitMax`）。
@@ -289,8 +296,11 @@ UI（准备页卡片、HUD 按钮）会自动跟着 `SKILL_LIST` 渲染，不用
 ### 二、动态敌军（每秒钟按你的规模重算）
 
 - `endlessRamp()` 每秒执行一次：
+  - 先算预算 `budget = CFG.unitTotalMax - totalUnits()`（全场单位总量，含中立小人），
+    **预算耗光就直接返回**：不增援、不派新敌军 —— 带住帧率的是这道总量闸门，不是单军团上限；
   - 支数对齐 `min(2 + ⌊峰值人数/45⌋, 7)`，阵亡或**溃逃**后自动补位（`spawnEndlessEnemy()`）；
-  - 每支按 `endlessEnemyTarget(pop, time, i, n)` 增援到目标人数（离玩家 520px 内不刷，避免凭空冒兵）；
+  - 每支按 `endlessEnemyTarget(pop, time, i, n)` 增援到目标人数（离玩家 520px 内不刷，避免凭空冒兵，
+    单轮增援量受 `budget` 约束）；
   - 统一刷新 `ai.ag / ai.react / ai.sp`（`endlessEnemyStats(pop)`），并同步 `this.aiCap`；
   - `cullEscapedEnemies()`：跑出 `1.25R` 的敌军判为**溃逃**并回收（无墙环境下的「逃不掉」替代方案）；
   - 中立小人目标量随规模上涨。
@@ -298,19 +308,23 @@ UI（准备页卡片、HUD 按钮）会自动跟着 `SKILL_LIST` 渲染，不用
   「方向朝外 + 到 `0.78R` 后改成绕玩家转圈」；找不到中立小人时在战场内绕玩家巡逻。
   这样即使没有墙，弱势敌军也**不会一路逃出战场**，玩家（惊慌减速机制下更快）总能追上。
 
-### 三、里程碑 = 暂停，不是过关
+### 三、里程碑 = 暂停，不是过关（而且不切页）
 
 - 引擎状态：`status = 'playing' | 'paused' | 'milestone' | 'over'`。
-  `milestone` 期间 `update()` 直接返回，**对局冻结但 `Game` 实例继续存活**。
+  `milestone` 期间 `update()` 直接返回，**对局冻结但 `Game` 实例继续存活**；`render()` 仍在跑，
+  所以背面的战场仍然是实时画面 —— 浮层能透出战场不是错觉。
 - `checkGoal()` 对 `goal.type === 'endless'` 只做一件事：
   人数 `>= this.nextMilestone` 时调用 `reachMilestone()`（不再有 `win()`）。
-- `reachMilestone()`：`milestones++`、`nextMilestone += step`、`releaseInput()`、
-  `buildResult(true)` 并回调 `hooks.onMilestone(res)`。
+- `reachMilestone()`：`milestones++`、`milestonePrev = 已达阈值`、
+  `nextMilestone += endlessMilestoneStep(milestones)`（**段长逐段上提，不是固定值**）、
+  `releaseInput()`、`buildResult(true)` 并回调 `hooks.onMilestone(res)`。
 - `resumeFromMilestone()`：重算 `this.buff = computeBuffs(run.buffs)`、恢复 `playing`、
   重置 `lastT`。**这就是「人数不重置」的实现方式** ——
-  UI 侧 `nextLevel()` 在无尽模式下不新建 `Game`，而是调用这个方法回到同一场对局。
+  UI 侧 `closeMilestone()`（由「点了一张奖励卡」触发）在无尽模式下不新建 `Game`，
+  而是调用这个方法回到同一场对局；`hideMilestoneOverlay()` 负责换关/放弃/结算时的清场。
 - 里程碑奖励走的是同一套 `rollRewards()`，只是传 `{ endless: true }`：
-  技能卡权重调高、去掉「解锁开局人数」卡。
+  技能卡权重调高、去掉「解锁开局人数」卡；渲染入口是 `renderMilestoneRewards()`（浮层），
+  关卡模式仍用 `renderRewards()`（整页结算）。
 
 ### 记录
 
@@ -336,11 +350,12 @@ npm test
 2. 按 `<script>` 顺序执行全部游戏脚本
 3. 打桩 Canvas（jsdom 没有绘图能力）
 4. 模拟真实用户点击：遍历主菜单、关卡选择、商店、成就、说明、出征准备
-5. 进入对局后验证：滑动控制、收编中立小人、**逐个吞噬（正向与反向）**、
-   技能释放、暂停/继续、通关结算、三选一、关卡推进、
+5. 进入对局后验证：滑动控制、收编中立小人、**按拍吞噬（擦边一拍只吞 1 个 · 盖住则同批吞一批 ·
+   反向被吞时单批不超上限）**、技能释放、暂停/继续、通关结算、三选一、关卡推进、
    **无尽模式（动态地图随玩家平移与规模变大、对玩家零边界限制、渲染不画任何边界/场地圈、
-   内容全部落在战场内、50 人里程碑暂停三选一 → 同一场对局继续、人数不重置、
-   全灭结算报峰值人数）**、失败流程、商店购买、存档持久化
+   内容全部落在战场内、里程碑递增序列 10 → 50 → 100 只上提不回退、
+   里程碑浮层不切页且点卡即续战、人数不重置、全灭结算报峰值人数、
+   单军团上限与全场总量闸门两个参数关系）**、失败流程、商店购买、存档持久化
 6. 捕获任何 jsdom 运行期 JS 错误，一旦出现即判定失败
 7. **技能/增益「描述 = 实效」校验**（第 17 段）：不看配置字符串，而是构造受控对局量测引擎实际值 ——
    7 条增益的数值（移速 ×1.35、吞噬 ×1.8、开局 +4 人、中立 +100%、敌军 -6、冷却 -48%、
@@ -349,9 +364,9 @@ npm test
    480 内敌军 ×0.6 且 480 外不减速、坚壁期间零损失且结束后恢复吞噬）
 
 当前规模（由 `scripts/visualization/lib_load_facts.mjs` 统计，可用 `npm run overview:data` 重算）：
-**18 段流程 · 156 处断言调用点 · 44 项界面校验**。全部通过时最后一行输出 `全部通过 ✓`。
+**18 段流程 · 172 处断言调用点 · 46 项界面校验**。全部通过时最后一行输出 `全部通过 ✓`。
 
-> 依赖时间的用例（逐个吞噬、反向吞噬、收编中立小人、无尽里程碑）统一走
+> 依赖时间的用例（按拍吞噬、反向吞噬、收编中立小人、无尽里程碑）统一走
 > `ticks(game, n, dt)` **固定步长推进**（`update` + `render` 各一次，
 > 因为镜头跟随/缩放是在 `render` 里推进的），不再依赖 `requestAnimationFrame` 的墙钟步长，
 > 因此不会随机器负载抖动。详见 [../CONTRIBUTING.md](../CONTRIBUTING.md) 第 6 节。
@@ -433,8 +448,9 @@ tail -f .server.log            # 查看日志
 
 | 项 | 说明 |
 |---|---|
-| 单位上限 | 单军团 900（`CFG.maxUnits`，同时是站位表容量），全局约 1800 |
-| 同屏绘制 | 每帧对可见单位各一次 `drawImage`；800 单位在桌面端流畅，低端移动端建议控制在 300 以内 |
+| 单位上限 | **单军团** 1500（`CFG.maxUnits`，同时是站位表容量）；**全场总量** 6000（`CFG.unitTotalMax`，`endlessRamp()` 每秒校验，超了就停止增援与派新敌军）——真正带住帧率的是总量闸门，不是单军团上限 |
+| 同屏绘制 | 每帧对可见单位各一次 `drawImage`（视口外裁剪）；800 单位在桌面端流畅，低端移动端建议控制在 300 以内 |
+| 吞噬批量判定 | `engulfedCount()` 是 O(输家单位数)，**只在到拍时跟**（每对约 3 次/秒），不进入每帧热路径 |
 | 空间网格 | 格子 46px，只用于「中立小人收编」查询；军团间战斗是 O(军团数²)，军团数 ≤ 8，可忽略 |
 | 单位间碰撞 | 不做单位级别的互相碰撞，靠编队站位自然散开（性能取舍） |
 | 音效 | 对 `join` / `eat` 做了最小间隔节流，避免密集触发时爆音 |

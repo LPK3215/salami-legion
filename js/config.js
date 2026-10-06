@@ -6,11 +6,15 @@ const CFG = {
   world: { w: 3000, h: 2200 },              // 地图尺寸
   unit: { r: 8, spacing: 13 },              // 小人半径 / 编队间距
   move: { base: 140, unitMax: 470, sizePenalty: 0.0030, sizePenaltyMax: 0.12, playerBonus: 1.14, panic: 0.86 },
-  eat: { interval: 0.32, contact: 0.94 },   // 逐个吞噬节奏：每 0.32 秒吞 1 个
+  eat: {                                  // 吞噬节奏：按拍结算，一拍吞「一批」
+    interval: 0.32,                       // 每 0.32 秒结算一次
+    contact: 0.94,                        // 两支军团判定接触的重合系数
+    batchMax: 10,                         // 单批上限：被我方圆盘盖住多少个，就一口气吞掉多少个
+  },
   pickup: 26,                               // 收编中立小人的判定半径
   zoom: { min: 0.36, max: 1.12 },
-  maxUnits: 900,                            // 单军团站位表上限
-  unitTotalMax: 1800,
+  maxUnits: 1500,                           // 单军团站位表上限（同时是站位表容量）
+  unitTotalMax: 6000,                       // 全场单位总量上限（所有军团 + 中立小人），性能闸门
   neutralMax: 460,
 };
 
@@ -177,15 +181,22 @@ const LEVELS = [
 ];
 
 /* ---------------- 无尽模式：一次连续对局，没有「层」 ----------------
-   规则：军团人数只增不减（不会重置），每满 ENDLESS.step 人弹一次三选一奖励，
+   规则：军团人数只增不减（不会重置），每达成一个里程碑弹一次三选一奖励，
    选完立刻接着打；只有全军覆没才会结束。敌军规模随我方人数与存活时间持续递增。
+
+   里程碑不是固定值，而是一路水涨船高：起步只要 10 人就能拿到第一次奖励，
+   之后每一段要求的增量越来越大（+40、+50、+60…），到后期不会动不动就弹窗。
 
    地图不是固定尺寸的棋盘，而是**以玩家为中心的圆形战场**：
    每帧按 endlessViewRadius() 算出半径，引擎把世界矩形重算成以玩家为圆心、
    边长 2R 的方框，并在框内持续生成 / 回收中立小人与装饰物 ——
    所以战场是「跟着玩家走、随规模变大」的动态地图，没有 3x3 / 4x4 这类写死尺寸。 */
 const ENDLESS = {
-  step: 50,                          // 每增长 50 人 → 三选一奖励
+  /* ---- 里程碑：要求随进度递增，不再固定 50 ---- */
+  milestoneFirst: 10,                      // 首个里程碑：攒到 10 人就给一次三选一
+  milestoneStepBase: 40,                   // 第二次起，单段增量从 +40 人开始
+  milestoneStepGrowth: 10,                 // 每达成一次，下一段的增量再 +10
+  milestoneStepMax: 150,                   // 增量封顶：再往后每段最多 +150 人
   maxEnemies: 7,                     // 场上敌军数量上限
   ratioMin: 0.30,                    // 最弱敌军人数 / 我方人数
   ratioMax: 0.85,                    // 最强敌军人数 / 我方人数（仍略低于我方，保证能吃）
@@ -204,6 +215,24 @@ const ENDLESS = {
   enemyLeash: 0.78,                  // 敌军逃到这个半径占比后改为绕圈，不再往外跑
   enemyDespawn: 1.25,                // 敌军跑出「半径 × 该系数」视为溃逃，回收后换新
 };
+
+/* 里程碑增量：达成第 n 次之后，下一段还要求多多少人（n=0 即首个里程碑） */
+function endlessMilestoneStep(n) {
+  if (n <= 0) return ENDLESS.milestoneFirst;
+  return Math.min(ENDLESS.milestoneStepMax,
+    ENDLESS.milestoneStepBase + (n - 1) * ENDLESS.milestoneStepGrowth);
+}
+
+/* 里程碑阈值序列预览（供文案 / 调试）：10 → 50 → 100 → 160 → 230 … */
+function endlessMilestoneThresholds(count) {
+  const out = [];
+  let at = ENDLESS.milestoneFirst;
+  for (let i = 0; i < count; i++) {
+    out.push(at);
+    at += endlessMilestoneStep(i + 1);
+  }
+  return out;
+}
 
 /* 动态战场半径：随我方规模持续变大（有上下限） */
 function endlessViewRadius(count) {
@@ -246,14 +275,14 @@ function makeEndlessLevel() {
     name: '无尽模式',
     endless: true,
     dynamicWorld: true,             // 以玩家为中心持续重算的动态地图
-    goal: { type: 'endless', step: ENDLESS.step },
+    goal: { type: 'endless', step: ENDLESS.milestoneFirst },
     neutral: 180,
     par: 0,
     gold: 0,
     coins: 30,
     world: { w: R * 2, h: R * 2 },
     enemies: enemies,
-    tip: '人数只增不减：每满 ' + ENDLESS.step + ' 人弹出一次三选一，敌军会随你的规模越滚越强',
+    tip: '人数只增不减：首个里程碑只要 ' + ENDLESS.milestoneFirst + ' 人，之后每一段要求的增量会一路涨上去；敌军会随你的规模越滚越强',
   };
 }
 

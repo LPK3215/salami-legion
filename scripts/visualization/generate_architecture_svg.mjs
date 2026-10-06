@@ -124,7 +124,7 @@ const pipe = [
   ['输入', '指针·键盘·摇杆'],
   ['目标点', '平滑转向'],
   ['编队移动', '间距 ' + f.mechanics.spacing],
-  ['逐个吞噬', `每 ${f.mechanics.eatInterval}s 转 1 个`],
+  ['按拍吞噬', `每 ${f.mechanics.eatInterval}s 一批 · 盖住几个吞几个`],
   ['AI 决策', '追 / 逃 / 收编'],
   ['空间网格', '碰撞裁剪'],
   ['Canvas 渲染', '精灵 + 相机'],
@@ -135,7 +135,7 @@ const ppy = L.eng.y + 56;
 const phh = 76;
 let px = 158;
 pipe.forEach(([title, sub], i) => {
-  const isKey = title === '逐个吞噬';
+  const isKey = title === '按拍吞噬';
   const color = isKey ? T.red : T.purple;
   p.push(
     `  <rect x="${px}" y="${ppy}" width="${pw}" height="${phh}" rx="9" fill="${isKey ? 'rgba(255,91,110,.14)' : 'rgba(255,255,255,.05)'}" stroke="${color}" stroke-opacity=".7" stroke-width="${isKey ? 2.2 : 1.4}"/>`
