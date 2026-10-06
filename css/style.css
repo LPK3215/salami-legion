@@ -336,6 +336,8 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .count-num{
   font-size:44px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;
   color:#fff;text-shadow:0 0 18px rgba(90,170,255,.8),0 4px 10px rgba(0,0,0,.6);
+  /* 人数能到四位数：收紧字距并禁止折行，免得把两侧的小地图 / 技能键挤变形 */
+  letter-spacing:-.02em;white-space:nowrap;padding:0 2px;
 }
 .count-num.pop{animation:numPop .22s ease;}
 @keyframes numPop{0%{transform:scale(1)}40%{transform:scale(1.22)}100%{transform:scale(1)}}
@@ -366,7 +368,7 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
   background:rgba(6,10,24,.72);transition:height .1s linear;
 }
 .skill-btn.cooling .skill-badge{opacity:.4;}
-.skill-name{font-size:10px;font-weight:700;color:var(--txt-dim);}
+.skill-name{font-size:11px;font-weight:700;color:var(--txt-dim);white-space:nowrap;}
 
 .hint-overlay{
   position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);
@@ -569,7 +571,10 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
   .buff-tags{display:none;}
   .count-label{display:none;}
   .count-num{font-size:30px;}
-  .enemy-list{max-height:30vh;}
+  /* 敌军队列在这个断点改横排：竖排满 7 支会被 max-height 裁掉几行，
+     而此时左下角的小地图已经隐藏，正好空出一整行来横向铺开 */
+  .enemy-list{flex-direction:row;flex-wrap:wrap;max-height:none;gap:4px;max-width:min(64vw,520px);}
+  .enemy-row{padding:2px 7px;}
   .hud-bottom{padding-bottom:calc(8px + env(safe-area-inset-bottom));}
   /* 矮屏下里程碑浮层不撑满：卡片压缩、去掉多余间距 */
   .ms-panel{gap:7px;padding:10px 12px;}
@@ -588,6 +593,8 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
   .icon-btn{width:48px;height:48px;font-size:14px;}
   .pill{padding:7px 13px;}
   .btn{padding:16px 20px;font-size:18px;}
+  /* 触屏上 40px 的一排小开关偏挤，抬到 44px（点击目标推荐下限） */
+  .btn-tiny{min-height:44px;padding:11px 16px;}
   .btn-back{padding:11px 16px;}
   .btn-mini{padding:12px 8px;font-size:14px;}
   /* 触屏没有 hover，用 active 反馈，避免点击时卡片位移 */

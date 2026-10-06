@@ -1,6 +1,6 @@
 /* 本文件由 scripts/visualization/generate_overview_facts.mjs 自动生成，请勿手工编辑。
  *    重新生成：node scripts/visualization/generate_overview_facts.mjs  或  npm run overview:data
- *    生成时间：2026-10-06 09:10Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
+ *    生成时间：2026-10-06 09:36Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
  *    js/save.js、package.json、css/style.css、index.html、test/dom.test.js、docs/04-development.md）。 */
 window.OVERVIEW_FACTS = {
  "meta": {
@@ -19,7 +19,7 @@ window.OVERVIEW_FACTS = {
   "runtimeDeps": 0,
   "devDeps": 1,
   "saveKey": "mini_legion_save_v1",
-  "generatedAt": "2026-10-06 09:10Z",
+  "generatedAt": "2026-10-06 09:36Z",
   "generator": "scripts/visualization/generate_overview_facts.mjs"
  },
  "content": {
@@ -106,27 +106,27 @@ window.OVERVIEW_FACTS = {
  },
  "lines": {
   "index.html": 293,
-  "css/style.css": 610,
+  "css/style.css": 617,
   "js/config.js": 375,
   "js/engine.js": 2401,
-  "js/ui.js": 922,
+  "js/ui.js": 921,
   "js/save.js": 103,
   "js/audio.js": 53,
   "server.js": 126,
-  "test/dom.test.js": 1389,
+  "test/dom.test.js": 1391,
   "scripts/start.sh": 56
  },
  "test": {
   "sections": 18,
   "asserts": 262,
   "checks": 58,
-  "lines": 1389
+  "lines": 1391
  },
  "totals": {
-  "jsLines": 3854,
-  "cssLines": 610,
+  "jsLines": 3853,
+  "cssLines": 617,
   "htmlLines": 293,
-  "testLines": 1389,
+  "testLines": 1391,
   "docFiles": 5,
   "screens": 9,
   "skinStyles": [
@@ -957,8 +957,8 @@ window.OVERVIEW_FACTS = {
      "name": "style.css",
      "path": "css/style.css",
      "type": "file",
-     "bytes": 29745,
-     "lines": 610
+     "bytes": 30362,
+     "lines": 617
     }
    ]
   },
@@ -1062,8 +1062,8 @@ window.OVERVIEW_FACTS = {
      "name": "ui.js",
      "path": "js/ui.js",
      "type": "file",
-     "bytes": 35302,
-     "lines": 922
+     "bytes": 35479,
+     "lines": 921
     }
    ]
   },
@@ -1181,8 +1181,8 @@ window.OVERVIEW_FACTS = {
      "name": "dom.test.js",
      "path": "test/dom.test.js",
      "type": "file",
-     "bytes": 85611,
-     "lines": 1389
+     "bytes": 85792,
+     "lines": 1391
     }
    ]
   },
@@ -1232,8 +1232,8 @@ window.OVERVIEW_FACTS = {
    "name": "CHANGELOG.md",
    "path": "CHANGELOG.md",
    "type": "file",
-   "bytes": 32097,
-   "lines": 382
+   "bytes": 32930,
+   "lines": 390
   },
   {
    "name": "CODE_OF_CONDUCT.md",

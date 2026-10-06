@@ -370,7 +370,9 @@ const UI = {
     if (rb) rb.textContent = this.run.mode === 'endless' ? '重开一局' : '重打本关';
 
     // 新手引导提示（文案随设备与操作方式变化）
-    const isFirstStage = this.run.mode === 'endless' ? true : (level.id === 1);
+    // 无尽模式只在「第一次玩」时给引导：已经玩过的人每重开一局都要看 6 秒浮层，那是干扰
+    const firstEndless = !(Save.data.stats.endlessBest > 0);
+    const isFirstStage = this.run.mode === 'endless' ? firstEndless : (level.id === 1);
     const hint = this.$('hint-overlay');
     if (hint) {
       hint.innerHTML = this.hintText();
@@ -431,12 +433,9 @@ const UI = {
     }
     const g = this.$('hud-goal');
     if (g) g.textContent = d.goalText;
-    // 无尽模式：把「战场半径」显示在关卡标题上，让动态地图的变化看得见
-    const lv = this.$('hud-level');
-    if (lv && this.run && this.run.mode === 'endless' && d.arenaR) {
-      const txt = '无尽模式 · 战场半径 ' + d.arenaR;
-      if (lv.textContent !== txt) lv.textContent = txt;
-    }
+    /* 这里以前会把左边那枚 pill 改成「无尽模式 · 战场半径 1505」——
+       战场半径是给开发者看的数字，对玩家没有任何可操作性，常驻在 HUD 上纯属噪音，去掉。
+       （`d.arenaR` 仍然由引擎提供，调试或将来做可视化时还能用） */
     const f = this.$('goalbar-fill');
     if (f) f.style.width = (d.progress * 100).toFixed(1) + '%';
     const t = this.$('hud-timer');

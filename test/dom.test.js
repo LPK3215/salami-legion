@@ -824,7 +824,9 @@ const harness = `
 
     assert(UI.run && UI.run.mode === 'endless', 'run.mode 应为 endless');
     assert(String($('hud-level').textContent).indexOf('无尽') >= 0, 'HUD 关卡标题未体现无尽');
-    assert(String($('hud-level').textContent).indexOf('战场半径') >= 0, 'HUD 应显示动态战场半径');
+    // 战场半径是开发者指标，不该常驻在玩家 HUD 上（曾经显示成「无尽模式 · 战场半径 1505」）
+    assert(String($('hud-level').textContent).indexOf('战场半径') < 0,
+      'HUD 不应显示战场半径，实际「' + $('hud-level').textContent + '」');
 
     click($('btn-pause'), 'btn-pause');
     assert(active('pause-overlay'), '暂停遮罩未出现');
