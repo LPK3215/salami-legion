@@ -1,13 +1,13 @@
 /* 本文件由 scripts/visualization/generate_overview_facts.mjs 自动生成，请勿手工编辑。
  *    重新生成：node scripts/visualization/generate_overview_facts.mjs  或  npm run overview:data
- *    生成时间：2026-10-06 06:15Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
+ *    生成时间：2026-10-06 07:05Z；所有数值直接来自项目源码（js/config.js、js/engine.js、
  *    js/save.js、package.json、css/style.css、index.html、test/dom.test.js、docs/04-development.md）。 */
 window.OVERVIEW_FACTS = {
  "meta": {
   "project": "蚕食军团",
   "projectEn": "Salami Legion",
   "name": "salami-legion",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "license": "MIT",
   "description": "蚕食军团（Salami Legion）—— 按拍吞噬、盖住多少同批吞多少的休闲军团对战游戏（纯前端 Canvas，零运行时依赖）",
   "author": "LPK3215 <17538703215@163.com>",
@@ -19,7 +19,7 @@ window.OVERVIEW_FACTS = {
   "runtimeDeps": 0,
   "devDeps": 1,
   "saveKey": "mini_legion_save_v1",
-  "generatedAt": "2026-10-06 06:15Z",
+  "generatedAt": "2026-10-06 07:05Z",
   "generator": "scripts/visualization/generate_overview_facts.mjs"
  },
  "content": {
@@ -89,28 +89,28 @@ window.OVERVIEW_FACTS = {
   "gridCell": 46
  },
  "lines": {
-  "index.html": 284,
+  "index.html": 292,
   "css/style.css": 597,
   "js/config.js": 331,
-  "js/engine.js": 2107,
-  "js/ui.js": 873,
-  "js/save.js": 98,
+  "js/engine.js": 2204,
+  "js/ui.js": 897,
+  "js/save.js": 102,
   "js/audio.js": 53,
   "server.js": 126,
-  "test/dom.test.js": 933,
+  "test/dom.test.js": 1086,
   "scripts/start.sh": 56
  },
  "test": {
   "sections": 18,
-  "asserts": 172,
-  "checks": 46,
-  "lines": 933
+  "asserts": 209,
+  "checks": 51,
+  "lines": 1086
  },
  "totals": {
-  "jsLines": 3462,
+  "jsLines": 3587,
   "cssLines": 597,
-  "htmlLines": 284,
-  "testLines": 933,
+  "htmlLines": 292,
+  "testLines": 1086,
   "docFiles": 5,
   "screens": 9,
   "skinStyles": [
@@ -915,7 +915,7 @@ window.OVERVIEW_FACTS = {
   "2. updateControl()      把玩家输入（指针/键盘）转成 player.target",
   "3. 对每个军团：",
   "aiThink()           AI 决策（有节流，不是每帧都算）",
-  "updateLegion()      算速度修正 → 移动军团中心 → 单位跟随编队 → 临时援军到期",
+  "updateLegion()      算速度修正 → 移动军团中心 → updateFormation() 单位跟随编队 → 临时援军到期",
   "4. buildUnitGrid()      把所有单位塞进空间网格（格子 46px）",
   "5. updateNeutrals()     中立小人游荡 + 被收编判定（查 3×3 邻域网格）",
   "6. updateCombat()       军团两两接触判定 + 按拍吞噬（盖住多少同批吞多少）",
@@ -928,8 +928,8 @@ window.OVERVIEW_FACTS = {
   "13. checkGoal()         判定胜负（无尽 → 里程碑）"
  ],
  "faq": {
-  "questions": 32,
-  "lines": 193
+  "questions": 34,
+  "lines": 205
  },
  "tree": [
   {
@@ -955,8 +955,8 @@ window.OVERVIEW_FACTS = {
      "name": "01-gameplay.md",
      "path": "docs/01-gameplay.md",
      "type": "file",
-     "bytes": 9077,
-     "lines": 163
+     "bytes": 9469,
+     "lines": 167
     },
     {
      "name": "02-modes.md",
@@ -976,21 +976,21 @@ window.OVERVIEW_FACTS = {
      "name": "04-development.md",
      "path": "docs/04-development.md",
      "type": "file",
-     "bytes": 24184,
-     "lines": 468
+     "bytes": 24803,
+     "lines": 474
     },
     {
      "name": "05-controls-and-layout.md",
      "path": "docs/05-controls-and-layout.md",
      "type": "file",
-     "bytes": 14013,
-     "lines": 279
+     "bytes": 17129,
+     "lines": 304
     },
     {
      "name": "architecture.svg",
      "path": "docs/architecture.svg",
      "type": "file",
-     "bytes": 14828,
+     "bytes": 14830,
      "lines": 135
     },
     {
@@ -1032,22 +1032,22 @@ window.OVERVIEW_FACTS = {
      "name": "engine.js",
      "path": "js/engine.js",
      "type": "file",
-     "bytes": 79753,
-     "lines": 2107
+     "bytes": 84640,
+     "lines": 2204
     },
     {
      "name": "save.js",
      "path": "js/save.js",
      "type": "file",
-     "bytes": 2815,
-     "lines": 98
+     "bytes": 3092,
+     "lines": 102
     },
     {
      "name": "ui.js",
      "path": "js/ui.js",
      "type": "file",
-     "bytes": 33334,
-     "lines": 873
+     "bytes": 34368,
+     "lines": 897
     }
    ]
   },
@@ -1165,8 +1165,8 @@ window.OVERVIEW_FACTS = {
      "name": "dom.test.js",
      "path": "test/dom.test.js",
      "type": "file",
-     "bytes": 53780,
-     "lines": 933
+     "bytes": 64763,
+     "lines": 1086
     }
    ]
   },
@@ -1216,8 +1216,8 @@ window.OVERVIEW_FACTS = {
    "name": "CHANGELOG.md",
    "path": "CHANGELOG.md",
    "type": "file",
-   "bytes": 22077,
-   "lines": 265
+   "bytes": 25279,
+   "lines": 308
   },
   {
    "name": "CODE_OF_CONDUCT.md",
@@ -1230,22 +1230,22 @@ window.OVERVIEW_FACTS = {
    "name": "CONTRIBUTING.md",
    "path": "CONTRIBUTING.md",
    "type": "file",
-   "bytes": 13071,
-   "lines": 208
+   "bytes": 13802,
+   "lines": 214
   },
   {
    "name": "FAQ.md",
    "path": "FAQ.md",
    "type": "file",
-   "bytes": 12846,
-   "lines": 193
+   "bytes": 13952,
+   "lines": 205
   },
   {
    "name": "index.html",
    "path": "index.html",
    "type": "file",
-   "bytes": 13268,
-   "lines": 284
+   "bytes": 14271,
+   "lines": 292
   },
   {
    "name": "LICENSE",
@@ -1279,8 +1279,8 @@ window.OVERVIEW_FACTS = {
    "name": "README.md",
    "path": "README.md",
    "type": "file",
-   "bytes": 12292,
-   "lines": 214
+   "bytes": 12640,
+   "lines": 217
   },
   {
    "name": "SECURITY.md",
@@ -1300,7 +1300,7 @@ window.OVERVIEW_FACTS = {
  "snippets": {
   "saveKey": "const SAVE_KEY = 'mini_legion_save_v1';",
   "eatCore": "          this.contacts.push({ a: A, b: B, x: (A.cx + B.cx) / 2, y: (A.cy + B.cy) / 2, r: Math.min(ra, rb) });\n\n          if (A.count === B.count) { this.pairTimers.set(key, CFG.eat.interval * 0.6); continue; }\n\n          let t = this.pairTimers.get(key);\n          if (t === undefined) t = CFG.eat.interval;\n          t -= dt;\n          if (t > 0) { this.pairTimers.set(key, t); continue; }\n\n          const big = A.count > B.count ? A : B;\n          const small = A.count > B.count ? B : A;\n\n          // 坚壁：未被吞噬方免疫\n          if (small.isPlayer && this.player.hasFx('shield')) {",
-  "newGame": "        self.game = new MiniGame({\n          canvas: self.$('game-canvas'),\n          minimap: self.$('minimap'),\n          level,\n          levelIndex: idx,\n          world: level.world,\n          run: self.run,\n          controlMode: Save.data.settings.controlMode || 'auto',\n          hooks: {\n            onHud(d) { self.onHud(d); },",
+  "newGame": "        self.game = new MiniGame({\n          canvas: self.$('game-canvas'),\n          minimap: self.$('minimap'),\n          level,\n          levelIndex: idx,\n          world: level.world,\n          run: self.run,\n          controlMode: Save.data.settings.controlMode || 'auto',\n          glide: Save.data.settings.glide !== false,\n          anchorStick: Save.data.settings.anchorStick !== false,",
   "levelDef": "  { id: 4,  name: '人潮涌动', goal: { type: 'reach', val: 36 },  neutral: 175, par: 70,  gold: 48,\n    enemies: [{ c: 8,  sp: 0.90, ag: 0.45, react: 0.55 }, { c: 10, sp: 0.92, ag: 0.48, react: 0.52 }, { c: 12, sp: 0.94, ag: 0.50, react: 0.50 }], coins: 40,\n    tip: '开局技能是翻盘关键，善用它' },\n\n  { id: 5,  name: '四面楚歌', goal: { type: 'eliminate' },       neutral: 190, par: 100, gold: 68,",
   "scriptOrder": null
  }
