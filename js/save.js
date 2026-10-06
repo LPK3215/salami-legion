@@ -22,6 +22,8 @@ function defaultSave() {
     settings: {
       sound: true,
       controlMode: 'auto',   // 操作方式：auto（自动识别）| joystick（虚拟摇杆）| follow（跟随手指）
+      glide: true,           // 惯性而行：松手/松键后沿最后方向继续走（关闭则「松手即停」）
+      anchorStick: true,     // 摇杆原点锁定：按下时收进安全区，不再跟着手指爬出屏幕
     },
   };
 }
@@ -53,7 +55,9 @@ const Save = {
     out.skinsOwned = Array.isArray(out.skinsOwned) ? out.skinsOwned : ['classic'];
     out.startOptions = Array.isArray(out.startOptions) ? out.startOptions : [3];
     out.stats = Object.assign(defaultSave().stats, out.stats || {});
-    out.settings = Object.assign({ sound: true, controlMode: 'auto' }, out.settings || {});
+    out.settings = Object.assign(
+      { sound: true, controlMode: 'auto', glide: true, anchorStick: true },
+      out.settings || {});
     return out;
   },
 

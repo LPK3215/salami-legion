@@ -259,17 +259,96 @@ const harness = `
     assert(g.stick.pointerId === 11 && g.stick.active, '点技能后摇杆状态被破坏');
     ok('多指同时操作：摇杆 + 技能按钮可同时使用');
 
-    // 松手停下（军团有平滑加速度，允许少量惯性，但必须迅速收敛）
+    /* ---- 摇杆原点锁定（旧 bug：橡皮筋会把原点拖出屏幕边界） ---- */
+    // 先收掉上面那根还按住的手指 11，否则新按下会被「只认第一根手指」拦下
     window.dispatchEvent(mkPtr('pointerup', 430, 400, 11, 'touch'));
     assert(g.stick.active === false && g.stick.pointerId === null, '松手后摇杆状态未复位');
-    await frames(4);
-    const stopFrom = { x: p.cx, y: p.cy };
-    await frames(40);
-    const drift = Math.hypot(p.cx - stopFrom.x, p.cy - stopFrom.y);
     const heldMove = Math.max(1, p.cx - stickFrom.x);
-    assert(drift / heldMove < 0.25,
-      '松手后应迅速停下，残余位移 ' + drift.toFixed(1) + 'px（按住时 ' + heldMove.toFixed(1) + 'px）');
-    ok('摇杆松手迅速停下：按住时位移 ' + heldMove.toFixed(1) + 'px → 松手后残余惯性 ' + drift.toFixed(1) + 'px');
+    ok('摇杆状态机正常：按下→拖动→多指→技能→松手均可复位（按住段位移 ' + heldMove.toFixed(1) + 'px）');
+
+    g.canvas.dispatchEvent(mkPtr('pointerdown', 700, 300, 31, 'touch'));
+    assert(g.stick.pointerId === 31, '手指 31 未能占用摇杆，实际绑定到 ' + g.stick.pointerId);
+    const anchor0 = { x: g.stick.originX, y: g.stick.originY };
+    // 手指超出行程 3 倍：原点不能动，方向与满力度必须保留（否则“拖着拖着就没行程了”）
+    g.canvas.dispatchEvent(mkPtr('pointermove', 700 + g.stick.maxR * 3, 300, 31, 'touch'));
+    assert(Math.abs(g.stick.originX - anchor0.x) < 0.01 && Math.abs(g.stick.originY - anchor0.y) < 0.01,
+      '手指超出行程时不应把摇杆原点拖走：实际原点 (' + g.stick.originX.toFixed(1) + ',' +
+      g.stick.originY.toFixed(1) + ')，按下位置 (' + anchor0.x + ',' + anchor0.y + ')');
+    assert(g.stick.axisX > 0.99 && g.stick.strength > 0.99,
+      '超出行程后应仍保持满力度同方向，实际力度 ' + g.stick.strength.toFixed(2));
+    // 往回拖也一样：原点仍不动，方向反向
+    g.canvas.dispatchEvent(mkPtr('pointermove', 700 - g.stick.maxR * 3, 300, 31, 'touch'));
+    assert(Math.abs(g.stick.originX - anchor0.x) < 0.01, '反方向拖也不应把原点带走');
+    assert(g.stick.axisX < -0.99 && g.stick.strength > 0.99, '反方向应仍为满速，实际 axisX=' + g.stick.axisX.toFixed(2));
+    window.dispatchEvent(mkPtr('pointerup', 700 - g.stick.maxR * 3, 300, 31, 'touch'));
+    // 在屏幕最下沿按下：原点应被收进安全区（距底边至少一个 maxR），否则向下拖没有行程
+    g.canvas.dispatchEvent(mkPtr('pointerdown', 400, 798, 32, 'touch'));
+    assert(g.stick.pointerId === 32, '手指 32 未能占用摇杆，实际绑定到 ' + g.stick.pointerId);
+    assert(g.stick.originY <= g.vh - g.stick.maxR + 0.01,
+      '靠近屏幕底边按下时原点应往里收：originY=' + g.stick.originY.toFixed(1) +
+      '，安全边界=' + (g.vh - g.stick.maxR).toFixed(1));
+    window.dispatchEvent(mkPtr('pointerup', 400, 798, 32, 'touch'));
+    ok('摇杆原点锁定：超出行程不再拖走原点（正反方向均满速）· 贴底边按下会自动收进安全区');
+
+    /* ---- 惯性而行（glide）：默认开 —— 松手保持方向，拉回中心＝刹车 ---- */
+    assert(g.glide === true, '惯性而行应默认开启');
+    g.canvas.dispatchEvent(mkPtr('pointerdown', 300, 400, 33, 'touch'));
+    assert(g.stick.pointerId === 33, '手指 33 未能占用摇杆，实际绑定到 ' + g.stick.pointerId);
+    g.canvas.dispatchEvent(mkPtr('pointermove', 430, 400, 33, 'touch'));
+    const glFrom = { x: p.cx, y: p.cy };
+    await frames(45);                       // 按住行进一段
+    const glHeld = p.cx - glFrom.x;
+    window.dispatchEvent(mkPtr('pointerup', 430, 400, 33, 'touch'));
+    await frames(4);
+    const glKeepFrom = { x: p.cx, y: p.cy };
+    await frames(40);                       // 松手后同样时长
+    const glKeep = p.cx - glKeepFrom.x;
+    assert(g.stick.active === false, '松手后摇杆应已释放');
+    assert(glHeld > 8 && glKeep / glHeld > 0.5,
+      '惯性而行开启时松手应继续前进：按住位移 ' + glHeld.toFixed(1) + 'px，松手后只有 ' +
+      glKeep.toFixed(1) + 'px');
+    assert(g.lastInput === 'cruise', '松手后输入来源应标记为 cruise，实际 ' + g.lastInput);
+    // 刹车：重新按住并把手指拉回原点（死区内），等减速完成后必须真的钉在原地
+    g.canvas.dispatchEvent(mkPtr('pointerdown', 300, 400, 34, 'touch'));
+    assert(g.stick.pointerId === 34, '手指 34 未能占用摇杆，实际绑定到 ' + g.stick.pointerId);
+    g.canvas.dispatchEvent(mkPtr('pointermove', 430, 400, 34, 'touch'));
+    await frames(10);
+    g.canvas.dispatchEvent(mkPtr('pointermove', g.stick.originX, g.stick.originY, 34, 'touch'));
+    assert(g.stick.strength === 0, '拉回中心后力度应归零（主动刹车）');
+    await frames(45);                        // 先给减速留够时间
+    const brakeSettled = { x: p.cx, y: p.cy };
+    await frames(40);                        // 再看它是否真的钉住
+    const brakeDrift = Math.hypot(p.cx - brakeSettled.x, p.cy - brakeSettled.y);
+    assert(brakeDrift < 8,
+      '拉回中心后应真的停下，减速完之后又漂了 ' + brakeDrift.toFixed(1) + 'px');
+    window.dispatchEvent(mkPtr('pointerup', g.stick.originX, g.stick.originY, 34, 'touch'));
+    assert(g.cruise.strength === 0, '刹车后巡航应被清空');
+    ok('惯性而行生效：松手保持方向继续走 ' + glKeep.toFixed(0) + 'px（按住段 ' + glHeld.toFixed(0) +
+       'px）· 拉回中心可刹车（减速后仅漂 ' + brakeDrift.toFixed(1) + 'px）');
+
+    /* ---- 关掉惯性：主菜单「惯性」开关 → 旧行为“松手即停” ---- */
+    assert(Save.data.settings.glide !== false, '惯性默认应为开');
+    click($('btn-glide'), 'btn-glide');      // 开 → 关，并同步到当前对局
+    assert(Save.data.settings.glide === false, '点击「惯性」未写入存档');
+    assert(g.glide === false, '点击「惯性」未同步到当前对局引擎');
+    g.canvas.dispatchEvent(mkPtr('pointerdown', 300, 400, 35, 'touch'));
+    assert(g.stick.pointerId === 35, '手指 35 未能占用摇杆，实际绑定到 ' + g.stick.pointerId);
+    g.canvas.dispatchEvent(mkPtr('pointermove', 430, 400, 35, 'touch'));
+    const offFrom = { x: p.cx, y: p.cy };
+    await frames(45);
+    const offHeld = Math.max(1, p.cx - offFrom.x);
+    window.dispatchEvent(mkPtr('pointerup', 430, 400, 35, 'touch'));
+    assert(g.stick.active === false, '关闭惯性后松手应释放摇杆');
+    await frames(4);
+    const offStop = { x: p.cx, y: p.cy };
+    await frames(40);
+    const offDrift = Math.hypot(p.cx - offStop.x, p.cy - offStop.y);
+    assert(offDrift / offHeld < 0.25,
+      '关闭惯性后应迅速停下，残余位移 ' + offDrift.toFixed(1) + 'px（按住时 ' + offHeld.toFixed(1) + 'px）');
+    click($('btn-glide'), 'btn-glide');      // 恢复默认（开），不影响后续用例
+    assert(g.glide === true, '再次点击「惯性」应回到开启');
+    ok('「惯性」开关双向有效：关闭后松手位移只残余 ' + offDrift.toFixed(1) +
+       'px（按住 ' + offHeld.toFixed(1) + 'px），并实时同步存档与对局');
 
     // 死区：全新一次触摸下，轻微抖动不产生移动，拉出死区立即响应
     g.canvas.dispatchEvent(mkPtr('pointerdown', 600, 400, 12, 'touch'));
@@ -293,13 +372,31 @@ const harness = `
 
     key('keyup', 'd');
     await frames(4);
-    const kbStop = { x: p.cx, y: p.cy };
-    await frames(40);
-    const kbDrift = Math.hypot(p.cx - kbStop.x, p.cy - kbStop.y);
-    const kbHeld = Math.max(1, p.cx - kbFrom.x);
-    assert(kbDrift / kbHeld < 0.25,
-      '松开按键后应迅速停下，残余位移 ' + kbDrift.toFixed(1) + 'px（按住时 ' + kbHeld.toFixed(1) + 'px）');
-    ok('键盘松开迅速停下：按住时位移 ' + kbHeld.toFixed(1) + 'px → 松手后残余惯性 ' + kbDrift.toFixed(1) + 'px');
+    const kbKeepFrom = { x: p.cx, y: p.cy };
+    await frames(40);                       // 惯性而行：松键后仍沿原方向走
+    const kbKeep = p.cx - kbKeepFrom.x;
+    const kbHeld = Math.max(1, p.cx - kbFrom.x - kbKeep);
+    assert(kbKeep / kbHeld > 0.5,
+      '惯性而行开启时松开方向键应继续前进：按住段 ' + kbHeld.toFixed(1) + 'px，松键后只有 ' +
+      kbKeep.toFixed(1) + 'px');
+    assert(g.lastInput === 'cruise', '松键后输入来源应为 cruise，实际 ' + g.lastInput);
+    ok('键盘惯性而行生效：松开 D 后继续前进 ' + kbKeep.toFixed(0) + 'px（按住段 ' + kbHeld.toFixed(0) + 'px）');
+
+    // 键盘上的主动刹车：同时按住两个相反方向（A + D）
+    key('keydown', 'd');                    // 先走起来
+    await frames(10);
+    key('keydown', 'a');                    // A + D 同时按下 → 抵消 → 刹车
+    assert(g.keys.x === 0 && g._held.size === 2, '相反方向应互相抵消且仍算「按着」');
+    await frames(45);                        // 减速完成
+    const kbBrakeFrom = { x: p.cx, y: p.cy };
+    await frames(40);                        // 再看是否钉住
+    const kbBrake = Math.hypot(p.cx - kbBrakeFrom.x, p.cy - kbBrakeFrom.y);
+    assert(kbBrake < 8,
+      '同时按住 A+D 应真的停下，减速完之后又漂了 ' + kbBrake.toFixed(1) + 'px');
+    assert(g.cruise.strength === 0, '刹车后巡航应被清空');
+    key('keyup', 'a');
+    key('keyup', 'd');
+    ok('键盘刹车生效：同时按住 A+D 停下（减速后仅漂 ' + kbBrake.toFixed(1) + 'px）');
 
     // 斜向：同时按住 W + D 必须保留两个方向
     key('keydown', 'w');
@@ -353,7 +450,9 @@ const harness = `
     /* ========== 9. 核心机制：按拍吞噬（擦边逐个吞 · 覆盖同批吞） ========== */
     // 隔离环境：清空中立小人，避免双方边打边收编干扰断言
     const savedNeutrals = g.neutrals;
+    const savedNeutralTarget = g.neutralTarget;
     g.neutrals = [];
+    g.neutralTarget = 0;      // 本段不让刷新的小人被收编，否则人数会变（只测吞噬节拍）
     g.legions.forEach((L) => { if (!L.isPlayer && L !== undefined) { L.clearUnits(); L.alive = false; } });
     // 前面的移动测试会让军团顺路收编中立小人，这里先压回安全人数，避免提前达成关卡目标
     while (p.count > 6) p.units.pop();
@@ -361,9 +460,16 @@ const harness = `
     const foe = g.legions.find((L) => !L.isPlayer);
     assert(foe, '找不到可用于测试的敌军团');
     p.target.x = p.cx; p.target.y = p.cy;   // 我方原地不动，只观察吞噬节奏
+    /* 本段只测吞噬节拍：清掉上一段用例残留的巡航/输入来源，
+       否则「惯性而行」会让我方军团自己往前跑，接触判定就会时好时坏 */
+    g.glide = false;
+    g.cruise.strength = 0;
+    g.lastInput = 'idle';
 
     /* 摆一支 n 人敌军在与我方圆心相距 dist 的位置，推进「一拍」，返回这一拍同批吞了几个 */
     const oneTickBatch = (n, dist) => {
+      // 先剔掉临时援军，不让它们在本段中途到期离队（否则我方会凭空空掉几个人）
+      p.units = p.units.filter(u => !u.temp);
       while (p.units.length > 6) p.units.pop();
       while (p.units.length < 6) p.addUnit(p.cx, p.cy);
       foe.alive = true;
@@ -372,11 +478,20 @@ const harness = `
       foe.cx = p.cx + dist; foe.cy = p.cy;
       foe.target.x = foe.cx; foe.target.y = foe.cy;
       for (let i = 0; i < n; i++) foe.addUnit(foe.cx + (i % 3) * 5, foe.cy + Math.floor(i / 3) * 5);
+      /* 把两个圆心“钉住”：上一段用例残留的速度会让它们飘，
+         而擦边场景只有几个像素的接触余量，一飘就脱离接触 → 一拍也吞不到 */
+      p.cvx = 0; p.cvy = 0;
+      p.target.x = p.cx; p.target.y = p.cy;
+      foe.cvx = 0; foe.cvy = 0;
       const engulfed = g.engulfedCount(foe, p);   // 被我方圆盘「盖住」的那几个
-      g.pairTimers.clear();                       // 从零开始攒这一拍
-      const before = foe.count, mine = p.count;
-      ticks(g, 20);                               // 20 × 0.02s = 0.4s → 正好一拍（间隔 0.32s）
-      return { eaten: before - foe.count, gained: p.count - mine, engulfed: engulfed };
+      const meN = p.count, foeN = foe.count, st0 = g.status;
+      g.pairTimers.clear();                        // 从零开始攒这一拍
+      ticks(g, 20);                                // 20 × 0.02s = 0.4s → 正好一拍（间隔 0.32s）
+      return {
+        eaten: foeN - foe.count, gained: p.count - meN, engulfed: engulfed,
+        meN: meN, foeN: foeN, st0: st0, st1: g.status,
+        me1: p.count, foe1: foe.count, eatenByMe: g.stats.eaten,
+      };
     };
 
     // 先摆一次 6 vs 4（拉远到不接触）取样双方圆盘半径，再据此算出「刚好相切」的距离
@@ -387,9 +502,20 @@ const harness = `
     const deep = oneTickBatch(4, 6);
 
     assert(graze.engulfed === 0, '擦边场景下不该有敌军单位被我方圆盘盖住，实际 ' + graze.engulfed + ' 个');
-    assert(graze.eaten === 1, '擦边接触应一拍只吞 1 个（一个一个地吃），实际 ' + graze.eaten + ' 个');
+    assert(graze.st0 === 'playing' && graze.st1 === 'playing',
+      '擦边这一拍对局必须正常运行，实际状态 ' + graze.st0 + ' → ' + graze.st1);
+    assert(graze.meN === 6 && graze.foeN === 4,
+      '擦边场景开局人数应为「我 6 敌 4」，实际 我' + graze.meN + ' 敌' + graze.foeN);
+    assert(graze.eaten === 1, '擦边接触应一拍只吞 1 个（一个一个地吃），实际 ' + graze.eaten +
+      ' 个（我 ' + graze.meN + '→' + graze.me1 + '，敌 ' + graze.foeN + '→' + graze.foe1 + '）');
     assert(deep.engulfed === 4, '覆盖场景下整支敌军应落在我方圆盘内，实际只有 ' + deep.engulfed + ' 个');
-    assert(deep.eaten === 4, '被盖住的部分应同批吸收，实际一拍只吞了 ' + deep.eaten + ' 个');
+    assert(deep.st0 === 'playing' && deep.st1 === 'playing',
+      '覆盖这一拍对局必须正常运行，实际状态 ' + deep.st0 + ' → ' + deep.st1);
+    assert(deep.meN === 6 && deep.foeN === 4,
+      '覆盖场景开局人数应为「我 6 敌 4」，实际 我' + deep.meN + ' 敌' + deep.foeN);
+    assert(deep.eaten === 4, '被盖住的部分应同批吸收，实际一拍吞了 ' + deep.eaten +
+      ' 个（我 ' + deep.meN + '→' + deep.me1 + '，敌 ' + deep.foeN + '→' + deep.foe1 +
+      '，盖住 ' + deep.engulfed + '）');
     assert(deep.eaten <= Math.round(CFG.eat.batchMax * Math.max(1, p.atkMul || 1)),
       '同批吸收不应超过单批上限，实际一拍吞了 ' + deep.eaten + ' 个');
     assert(graze.eaten === graze.gained && deep.eaten === deep.gained,
@@ -423,12 +549,16 @@ const harness = `
     }
     assert(minMe < meBeforeLose, '人数劣势时应被敌方持续吞掉，实际 ' + meBeforeLose + ' -> ' + minMe);
     assert(minMe > 0, '测试中我方不应全灭');
-    assert(maxDrop <= Math.round(CFG.eat.batchMax),
-      '被吞也必须按拍结算、单批不超上限，实际一拍掉了 ' + maxDrop + ' 人（上限 ' + CFG.eat.batchMax + '）');
+    assert(maxDrop <= Math.round(CFG.eat.batchMax * Math.ceil(20 * 0.02 / CFG.eat.interval)),
+      '被吞也必须按拍结算、单批不超上限：窗口 0.4s 最多含 ' +
+      Math.ceil(20 * 0.02 / CFG.eat.interval) + ' 拍 × 上限 ' + CFG.eat.batchMax +
+      ' 个，实际一拍掉了 ' + maxDrop + ' 人');
     ok('反向吞噬生效：敌 ' + foeBig + ' 人 > 我方 ' + meBeforeLose + ' 人，我方被一批一批吞至 ' +
        minMe + ' 人（一拍最多掉 ' + maxDrop + ' 个，不会瞬间清空）');
 
     // 恢复环境（保持人数低于关卡目标，后续步骤再触发通关）
+    g.glide = Save.data.settings.glide !== false;   // 把惯性恢复到存档设定
+    g.neutralTarget = savedNeutralTarget;
     g.neutrals = savedNeutrals;
     foe.clearUnits();
     foe.alive = false;
@@ -631,6 +761,29 @@ const harness = `
     const cardText = Array.prototype.map.call(cards2, c => c.textContent).join('|');
     assert(cardText.indexOf('解锁开局') < 0, '无尽里程碑不应出现「解锁开局人数」卡');
     ok('里程碑浮层：半透明浮在战场上 · 三选一正常 · 纪录 ' + Save.data.stats.endlessBest + ' 人');
+
+    /* ---- 里程碑不再“整帧硬冻”：世界继续呼吸（滑停/粒子/镜头），玩法不推进 ---- */
+    ge.particles.length = 0;
+    ge.burst(ge.player.cx, ge.player.cy, '#ffffff', 8, 100);
+    const mParticleN = ge.particles.length;
+    const mTime0 = ge.time, mEaten0 = ge.stats.eaten, mCount0 = ge.player.count;
+    const mCx0 = ge.player.cx, mCy0 = ge.player.cy;
+    ge.player.cvx = 260; ge.player.cvy = 0;   // 给个满速惯性：应该“滑停”而不是“急停”
+    ticks(ge, 30);
+    assert(ge.status === 'milestone', '这段校验必须在里程碑冻结期内');
+    assert(ge.particles.length < mParticleN,
+      '里程碑期间粒子应继续消散（旧版整帧 return 会连粒子一起僵住），实际 ' +
+      mParticleN + ' → ' + ge.particles.length);
+    assert(ge.time === mTime0, '里程碑期间不应推进对局时间，实际 ' + mTime0 + ' → ' + ge.time);
+    assert(ge.stats.eaten === mEaten0 && ge.player.count === mCount0,
+      '里程碑期间不应继续吞噬/变动人数');
+    const mGlide = Math.hypot(ge.player.cx - mCx0, ge.player.cy - mCy0);
+    assert(mGlide > 4, '军团应带着惯性滑出一段（滑停），实际位移仅 ' + mGlide.toFixed(1) + 'px');
+    ticks(ge, 60);
+    assert(Math.hypot(ge.player.cvx, ge.player.cvy) < 8,
+      '滑行应衰减到接近静止，实际速度 ' + ge.player.cvx.toFixed(1));
+    assert(Math.abs(ge.dynR) > 0, '里程碑期间动态战场仍应在玩家周围（不重新构造世界）');
+    ok('里程碑软暂停：滑停 ' + mGlide.toFixed(1) + 'px 后停下 · 粒子继续消散 · 时间与吞噬不推进');
 
     // 点一张卡 → 当场生效，短暂高光后自动回到战场，不需要再点「下一步」
     const countBefore = ge.player.count;

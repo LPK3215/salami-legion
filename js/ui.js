@@ -137,6 +137,27 @@ const UI = {
       });
       apply();
     }
+
+    // 惯性而行：松手/松键后保持方向继续走 ↔ 松手即停
+    const glide = this.$('btn-glide');
+    if (glide) {
+      const applyGlide = () => {
+        const on = Save.data.settings.glide !== false;
+        glide.textContent = on ? '惯性：保持方向' : '惯性：松手即停';
+        if (this.game) this.game.glide = on;
+      };
+      glide.addEventListener('click', () => {
+        SFX.click();
+        Save.data.settings.glide = !(Save.data.settings.glide !== false);
+        save();
+        applyGlide();
+        const on2 = Save.data.settings.glide !== false;
+        this.toast(on2
+          ? '惯性而行：松手后沿最后方向继续走（把摇杆拉回中心 / 按住 A+D 可刹车）'
+          : '松手即停：手指离开屏幕或松开方向键就站住', 2600);
+      });
+      applyGlide();
+    }
   },
 
   /* 当前是否触屏设备 */
@@ -147,16 +168,17 @@ const UI = {
 
   /* 根据设备与操作方式生成引导文案 */
   hintText() {
-    const mode = (Save.data.settings && Save.data.settings.controlMode) || 'auto';
-    const touch = this.isTouch();
+    const st = (Save.data.settings || {});
+    const mode = st.controlMode || 'auto';
+    const tail = st.glide !== false ? '松手后保持方向继续走' : '松手即停';
     if (mode === 'follow') {
-      return touch ? '按住屏幕，军团朝手指位置移动' : '移动鼠标控制方向 · 空格放技能';
+      return this.isTouch() ? '按住屏幕，军团朝手指位置移动' : '移动鼠标控制方向 · 空格放技能';
     }
     if (mode === 'joystick') {
-      return '按住屏幕拖动，虚拟摇杆控制方向<br>拖得越远走得越快，松手即停';
+      return '按住屏幕拖动，虚拟摇杆控制方向<br>拖得越远走得越快，' + tail;
     }
-    return touch
-      ? '按住屏幕拖动，虚拟摇杆控制方向<br>拖得越远走得越快，松手即停'
+    return this.isTouch()
+      ? '按住屏幕拖动，虚拟摇杆控制方向<br>拖得越远走得越快，' + tail
       : '移动鼠标控制方向<br>WASD / 方向键同样可用 · 空格放技能';
   },
 
@@ -353,6 +375,8 @@ const UI = {
           world: level.world,
           run: self.run,
           controlMode: Save.data.settings.controlMode || 'auto',
+          glide: Save.data.settings.glide !== false,
+          anchorStick: Save.data.settings.anchorStick !== false,
           hooks: {
             onHud(d) { self.onHud(d); },
             onWin(r) { self.onWin(r); },

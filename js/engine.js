@@ -238,12 +238,17 @@
       this.pointer = { x: 0, y: 0, active: false, pointerId: null };
       // 键盘：x / y 取值 -1 / 0 / 1（支持斜向）
       this.keys = { x: 0, y: 0 };
-      // 虚拟摇杆（触屏主控）：按下位置为原点，拖动方向与幅度决定移动方向与速度
+      // 虚拟摇杆（触屏主控）：**按下瞬间把原点锚定到屏幕安全区，之后不再跟着手指跑**，
+      // 手指超出行程就落在圆周上 → 360° 都有完整行程，不会“拖着拖着拖出屏幕”
       this.stick = {
         active: false, pointerId: null,
         originX: 0, originY: 0, knobX: 0, knobY: 0,
         axisX: 0, axisY: 0, strength: 0, maxR: 72,
       };
+      /* 惯性与行：方向由你控制，“动不动”不再由你控制 —— 松手后沿最后方向继续走 */
+      this.glide = opts.glide !== false;
+      this.anchorStick = opts.anchorStick !== false;   // 摇杆原点锁定（false = 旧橡皮筋）
+      this.cruise = { x: 0, y: 0, strength: 0 };
       this.inputKind = 'mouse';                 // mouse | touch | keyboard（最近一次输入设备）
       this.lastInput = 'idle';                  // idle | pointer | keys | stick
       this.controlMode = opts.controlMode || 'auto';   // auto | joystick | follow
@@ -508,6 +513,7 @@
 
         if (!useStick(t)) {
           // 指针跟随模式（鼠标 / 触屏可选“跟随手指”）
+          this.cruise.strength = 0;           // 换了操控设备 → 清除上一设备的巡航
           this.pointer.x = p.x;
           this.pointer.y = p.y;
           this.pointer.active = true;
@@ -517,15 +523,20 @@
 
         // 虚拟摇杆：只认第一根按在画布上的手指，多指操作不会互相干扰
         if (this.stick.pointerId !== null) return;
-        this.stick.pointerId = e.pointerId;
-        this.stick.active = true;
-        this.stick.originX = p.x;
-        this.stick.originY = p.y;
-        this.stick.knobX = p.x;
-        this.stick.knobY = p.y;
-        this.stick.axisX = 0;
-        this.stick.axisY = 0;
-        this.stick.strength = 0;
+        const s = this.stick;
+        s.pointerId = e.pointerId;
+        s.active = true;
+        this.cruise.strength = 0;             // 新按下一次 → 上一个巡航方向作废
+        /* 锚定：把原点收进「距四边至少一个 maxR」的安全区，
+           所以在屏幕最下沿按下也能向下拉满（手指本身已经提供了这段行程） */
+        const pad = s.maxR;
+        s.originX = this.anchorStick ? clamp(p.x, pad, Math.max(pad, this.vw - pad)) : p.x;
+        s.originY = this.anchorStick ? clamp(p.y, pad, Math.max(pad, this.vh - pad)) : p.y;
+        s.knobX = s.originX;
+        s.knobY = s.originY;
+        s.axisX = 0;
+        s.axisY = 0;
+        s.strength = 0;
         this.lastInput = 'stick';
         try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 部分环境不支持 */ }
       };
@@ -537,6 +548,7 @@
         if (t === 'mouse') {
           if (useStick(t)) return;
           const p = localPt(e);
+          this.cruise.strength = 0;           // 鼠标一动就重新拿回控制权
           this.pointer.x = p.x;
           this.pointer.y = p.y;
           this.pointer.active = true;
@@ -675,17 +687,32 @@
       this.stick.axisX = 0;
       this.stick.axisY = 0;
       this.stick.strength = 0;
+      this.cruise.x = 0;
+      this.cruise.y = 0;
+      this.cruise.strength = 0;
       this.lastInput = 'idle';
     }
 
-    /* 摇杆：手指位置 → 方向 + 力度；手指拖出范围时原点会跟着走（橡皮筋） */
+    /* 摇杆：手指位置 → 方向 + 力度
+       原点默认【锁定】：旧版是“橡皮筋”（超出半径就把原点往手指方向拖），
+       于是原点会一路跟着手指爬出屏幕边界，行程越用越短 → 每次都得松手重按；
+       现在手指超出 maxR 只把向量收在圆周上，方向与满力度都保留（360° 行程恒定）。
+       anchorStick = false 可退回旧橡皮筋行为。 */
     updateStick(p) {
       const s = this.stick;
+      const pad = s.maxR;
       let dx = p.x - s.originX;
       let dy = p.y - s.originY;
       let dist = Math.hypot(dx, dy);
 
-      if (dist > s.maxR) {
+      if (this.anchorStick) {
+        // 窗口尺寸变了也要重新收一次，防止原点落在安全区外
+        s.originX = clamp(s.originX, pad, Math.max(pad, this.vw - pad));
+        s.originY = clamp(s.originY, pad, Math.max(pad, this.vh - pad));
+        dx = p.x - s.originX;
+        dy = p.y - s.originY;
+        dist = Math.hypot(dx, dy);
+      } else if (dist > s.maxR) {
         const k = 1 - s.maxR / dist;
         s.originX += dx * k;
         s.originY += dy * k;
@@ -773,6 +800,9 @@
 
     /* ===== 更新 ===== */
     update(dt) {
+      /* 里程碑：世界继续「呼吸」（滑停 + 粒子 + 镜头），只是不再推进玩法。
+         以前这里是整帧直接 return，弹窗那一帧军团从满速直接僵住，看着就是卡顿。 */
+      if (this.status === 'milestone') { this.updateSettle(dt); return; }
       if (this.status !== 'playing') return;   // 已结束/暂停不再推进
       this.time += dt;
 
@@ -814,17 +844,29 @@
     }
 
     /* 输入 → 军团目标点
-       优先级：虚拟摇杆 > 键盘 > 指针跟随；键盘/摇杆松开后立即停下而不是继续漂移 */
+       优先级：虚拟摇杆 > 键盘 > 巡航（惯性而行）> 指针跟随
+       “惯性而行”打开时（glide）：手指/按键还按着就实时控制（拉回中心＝刹车），
+       全部抬起/松开后则**锁定最后方向继续行进** —— 你只控制方向，不控制“动不动”。 */
     updateControl(dt) {
       const p = this.player;
       if (!p.alive) { this.lastInput = 'idle'; return; }
       const REACH = 430;                     // 键盘/摇杆一次给多远的目标点
 
       // 1) 虚拟摇杆：方向 + 力度 → 目标点，力度越小走得越慢
-      if (this.stick.active && (this.stick.axisX || this.stick.axisY)) {
-        const reach = REACH * this.stick.strength;
-        p.target.x = this.clampX(p.cx + this.stick.axisX * reach, 20);
-        p.target.y = this.clampY(p.cy + this.stick.axisY * reach, 20);
+      if (this.stick.active) {
+        if (this.stick.axisX || this.stick.axisY) {
+          this.cruise.x = this.stick.axisX;
+          this.cruise.y = this.stick.axisY;
+          this.cruise.strength = this.stick.strength;
+          const reach = REACH * this.stick.strength;
+          p.target.x = this.clampX(p.cx + this.stick.axisX * reach, 20);
+          p.target.y = this.clampY(p.cy + this.stick.axisY * reach, 20);
+        } else {
+          // 手指还按着但回到了死区 → 这是【主动刹车】
+          this.cruise.strength = 0;
+          p.target.x = p.cx;
+          p.target.y = p.cy;
+        }
         this.lastInput = 'stick';
         return;
       }
@@ -832,26 +874,108 @@
       // 2) 键盘：按住方向键 / WASD 移动，支持斜向
       if (this.keys.x || this.keys.y) {
         const len = Math.hypot(this.keys.x, this.keys.y) || 1;
-        p.target.x = this.clampX(p.cx + (this.keys.x / len) * REACH, 20);
-        p.target.y = this.clampY(p.cy + (this.keys.y / len) * REACH, 20);
+        this.cruise.x = this.keys.x / len;
+        this.cruise.y = this.keys.y / len;
+        this.cruise.strength = 1;
+        p.target.x = this.clampX(p.cx + this.cruise.x * REACH, 20);
+        p.target.y = this.clampY(p.cy + this.cruise.y * REACH, 20);
         this.lastInput = 'keys';
         return;
       }
 
-      // 3) 键盘/摇杆刚松开 → 原地停下（避免松手后还自己往前跑）
-      if (this.lastInput === 'keys' || this.lastInput === 'stick') {
+      // 3) 同时按住两个相反方向（A+D / W+S）→ 键盘上的主动刹车
+      if (this._held.size > 0) {
+        this.cruise.strength = 0;
+        p.target.x = p.cx;
+        p.target.y = p.cy;
+        this.lastInput = 'keys';
+        return;
+      }
+
+      // 4) 全部松手：惯性而行 → 沿锁定的方向继续走
+      if (this.glide && this.cruise.strength > 0) {
+        const reach = REACH * this.cruise.strength;
+        p.target.x = this.clampX(p.cx + this.cruise.x * reach, 20);
+        p.target.y = this.clampY(p.cy + this.cruise.y * reach, 20);
+        this.lastInput = 'cruise';
+        return;
+      }
+
+      // 5) 关掉惯性：键盘/摇杆一松就原地停下（旧行为，仍作为可选项保留）
+      if (this.lastInput === 'keys' || this.lastInput === 'stick' || this.lastInput === 'cruise') {
+        this.cruise.strength = 0;
         p.target.x = p.cx;
         p.target.y = p.cy;
         this.lastInput = 'idle';
         if (!this.pointer.active) return;
       }
 
-      // 4) 鼠标跟随 / 触屏“跟随手指”模式：朝指针所在的世界坐标移动
+      // 6) 鼠标跟随 / 触屏“跟随手指”模式：朝指针所在的世界坐标移动
       if (this.pointer.active && this.pointer.x !== undefined) {
         const w = this.screenToWorld(this.pointer.x, this.pointer.y);
         p.target.x = this.clampX(w.x, 20);
         p.target.y = this.clampY(w.y, 20);
+        this.cruise.strength = 0;            // 指针接管 → 巡航作废
         this.lastInput = 'pointer';
+      }
+    }
+
+    /* 里程碑期间的“软暂停”：不推进时间/输入/AI/吞噬/刷兵/胜负，
+       但军团靠惯性滑停、队形继续收紧、粒子与镜头继续走 —— 消除“硬冻结”的卡顿感。 */
+    updateSettle(dt) {
+      const p = this.player;
+      if (p && p.alive && p.count > 0) {
+        // 中心速度指数衰减，按衰减后的速度积分位置 → 滑停而不是急停
+        const damp = Math.exp(-4.2 * dt);
+        p.cvx *= damp;
+        p.cvy *= damp;
+        p.cx += p.cvx * dt;
+        p.cy += p.cvy * dt;
+        if (!this.dynWorld) {
+          const R = p.radius;
+          p.cx = this.clampX(p.cx, R * 0.4 + 8);
+          p.cy = this.clampY(p.cy, R * 0.4 + 8);
+        }
+        p.target.x = p.cx;
+        p.target.y = p.cy;
+        this.updateFormation(p, dt, p.speedMul || 1);
+      }
+      this.updateParticles(dt);
+      this.updateCamera(dt);
+    }
+
+    /* 单位朝各自的编队站位跟随。
+       从 updateLegion() 里拆出来单独可用：里程碑惯性滑行期间不推进军团中心，
+       但小人仍需继续收紧队形与呼吸动画，否则整支队会当帧僵住。 */
+    updateFormation(L, dt, speedMul) {
+      const n = L.units.length;
+      const maxU = CFG.move.unitMax * Math.max(0.85, speedMul || 1);
+      const ek = 1 - Math.exp(-11 * dt);
+      for (let i = 0; i < n; i++) {
+        const u = L.units[i];
+        const s = SLOTS[i < SLOTS.length ? i : SLOTS.length - 1];
+        const gx = L.cx + s[0];
+        const gy = L.cy + s[1];
+        const ddx = gx - u.x, ddy = gy - u.y;
+        const dd = Math.hypot(ddx, ddy) || 1;
+        const want = Math.min(maxU, dd * 8.5);
+        const vtx = (ddx / dd) * want;
+        const vty = (ddy / dd) * want;
+        u.vx = lerp(u.vx, vtx, ek);
+        u.vy = lerp(u.vy, vty, ek);
+        u.x += u.vx * dt;
+        u.y += u.vy * dt;
+        // 边界（无尽模式的动态战场没有墙，只靠编队跟随约束）
+        if (!this.dynWorld) {
+          const lx = this.world.x + 6, ly = this.world.y + 6;
+          const rx = this.world.x + this.world.w - 6, by = this.world.y + this.world.h - 6;
+          if (u.x < lx) { u.x = lx; u.vx = 0; }
+          if (u.y < ly) { u.y = ly; u.vy = 0; }
+          if (u.x > rx) { u.x = rx; u.vx = 0; }
+          if (u.y > by) { u.y = by; u.vy = 0; }
+        }
+        u.ph += dt * 5.5;
+        if (u.flash > 0) u.flash -= dt;
       }
     }
 
@@ -916,34 +1040,7 @@
       }
 
       /* --- 单位跟随编队 --- */
-      const maxU = CFG.move.unitMax * Math.max(0.85, speedMul);
-      const ek = 1 - Math.exp(-11 * dt);
-      for (let i = 0; i < n; i++) {
-        const u = L.units[i];
-        const s = SLOTS[i < SLOTS.length ? i : SLOTS.length - 1];
-        const gx = L.cx + s[0];
-        const gy = L.cy + s[1];
-        const ddx = gx - u.x, ddy = gy - u.y;
-        const dd = Math.hypot(ddx, ddy) || 1;
-        const want = Math.min(maxU, dd * 8.5);
-        const vtx = (ddx / dd) * want;
-        const vty = (ddy / dd) * want;
-        u.vx = lerp(u.vx, vtx, ek);
-        u.vy = lerp(u.vy, vty, ek);
-        u.x += u.vx * dt;
-        u.y += u.vy * dt;
-        // 边界（无尽模式的动态战场没有墙，只靠编队跟随约束）
-        if (!this.dynWorld) {
-          const lx = this.world.x + 6, ly = this.world.y + 6;
-          const rx = this.world.x + this.world.w - 6, by = this.world.y + this.world.h - 6;
-          if (u.x < lx) { u.x = lx; u.vx = 0; }
-          if (u.y < ly) { u.y = ly; u.vy = 0; }
-          if (u.x > rx) { u.x = rx; u.vx = 0; }
-          if (u.y > by) { u.y = by; u.vy = 0; }
-        }
-        u.ph += dt * 5.5;
-        if (u.flash > 0) u.flash -= dt;
-      }
+      this.updateFormation(L, dt, speedMul);
 
       /* --- 临时援军到期 --- */
       if (L.isPlayer) {

@@ -80,9 +80,12 @@ npm run docs:svg
 | 设备 | 移动 | 技能 |
 |---|---|---|
 | **电脑** | 移动鼠标即可（军团跟随光标，带十字准星）；也可以 `W A S D` / `↑ ← ↓ →`，**支持同时按两个键斜向走** | `空格` / `E`，或点右下角按钮 |
-| **手机 / 平板** | **按住屏幕任意位置出现虚拟摇杆**，拖动方向即移动方向，拖得越远走得越快，松手即停 | 点右下角圆形按钮（可与摇杆多指同时操作） |
+| **手机 / 平板** | **按住屏幕任意位置出现虚拟摇杆**，拖动方向即移动方向，拖得越远走得越快；摇杆**中心锁定**，拖不出屏幕 | 点右下角圆形按钮（可与摇杆多指同时操作） |
 
 - 暂停：`Esc` 或 `P`（也可以点右上角按钮）；切到后台自动暂停。
+- **惯性而行（默认开）**：抬起手指 / 松开方向键后，军团沿最后方向继续走，你只控制方向；
+  想停就把摇杆**拉回中心**，或同时按住两个相反方向键（`A+D` / `W+S`）。
+  主菜单的 **「惯性」** 可切回旧手感「松手即停」。
 - 不习惯摇杆？主菜单点 **「操作」** 可切换为「跟随手指 / 指针：点哪走哪」。
 - 想了解机制与数值？主菜单底部的 **「项目介绍」** 会打开全景观览页（不影响当前进度）。
 - 完整方案与参数见 [docs/05-controls-and-layout.md](docs/05-controls-and-layout.md)。
@@ -164,13 +167,13 @@ npm test                      # jsdom 端到端测试：真实点击全部界面
 
 ```text
 salami-legion/
-├── index.html             页面骨架与各屏 DOM（284 行）
+├── index.html             页面骨架与各屏 DOM（292 行）
 ├── css/style.css          全部样式、断点适配、动画（597 行）
 ├── js/
 │   ├── config.js          数值与内容真源：关卡/技能/增益/皮肤/成就（331 行）
-│   ├── engine.js          核心引擎：按拍吞噬（盖住同批吞）、编队移动、AI、渲染、输入（2107 行）
-│   ├── ui.js              界面流转与交互（873 行）
-│   ├── save.js            localStorage 存档读写（98 行）
+│   ├── engine.js          核心引擎：按拍吞噬（盖住同批吞）、摇杆锁定与惯性而行、编队移动、AI、渲染（2204 行）
+│   ├── ui.js              界面流转与交互（897 行）
+│   ├── save.js            localStorage 存档读写（102 行）
 │   └── audio.js           WebAudio 实时合成音效（53 行）
 ├── server.js              零依赖静态服务器（126 行，仅本地/云开发预览用）
 ├── scripts/
@@ -181,7 +184,7 @@ salami-legion/
 │       ├── generate_attrition_mechanic_svg.mjs → docs/attrition-mechanic.svg
 │       ├── generate_content_scale_svg.mjs   → docs/content-scale.svg
 │       └── generate_overview_facts.mjs      → project_overview/facts.js
-├── test/dom.test.js        jsdom 端到端测试（933 行）
+├── test/dom.test.js        jsdom 端到端测试（1086 行）
 ├── docs/                   5 篇玩法与开发文档 + 3 张生成的 SVG（见上方文档索引与「一图看懂」）
 ├── project_overview/        项目全景观览页（index.html + style.css + script.js + charts.js + 生成的 facts.js）
 ├── project_overview.html    根目录入口（meta refresh 跳转）

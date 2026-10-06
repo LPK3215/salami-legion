@@ -7,7 +7,7 @@
 <title>蚕食军团 · Salami Legion</title>
 <!-- 静态资源带版本号：改了 css/js 就把 ?v= 一起改掉，
      否则老访客的浏览器会继续用缓存里的旧脚本（GitHub Pages 给静态资源 10 分钟强缓存） -->
-<link rel="stylesheet" href="css/style.css?v=20261006">
+<link rel="stylesheet" href="css/style.css?v=20261006b">
 </head>
 <body>
 
@@ -36,6 +36,7 @@
       <div class="tiny-row">
         <button class="btn btn-tiny" id="btn-sound">音效：开</button>
         <button class="btn btn-tiny" id="btn-control">操作：自动</button>
+        <button class="btn btn-tiny" id="btn-glide">惯性：保持方向</button>
         <a class="btn btn-tiny" id="btn-about" href="./project_overview/" target="_blank" rel="noopener" title="在新标签页打开项目全景观览">项目介绍</a>
         <button class="btn btn-tiny danger" id="btn-reset">清空存档</button>
       </div>
@@ -226,16 +227,23 @@
       <h3>核心操作 · 电脑端</h3>
       <ul>
         <li><b>鼠标</b>：移动鼠标即可控制方向，军团会朝鼠标所在位置移动，目标点会有十字准星提示。</li>
-        <li><b>键盘移动</b>：<code>W A S D</code> 或 <code>↑ ← ↓ →</code>，按住即走，<b>同时按两个方向可斜向移动</b>，松开立即停下。</li>
+        <li><b>键盘移动</b>：<code>W A S D</code> 或 <code>↑ ← ↓ →</code>，按住即走，<b>同时按两个方向可斜向移动</b>。</li>
+        <li><b>惯性而行（默认开）</b>：松开所有方向键后，军团<b>沿最后方向继续走</b>，你只控制方向。</li>
+        <li><b>主动刹车</b>：同时按住两个相反方向（<code>A + D</code> 或 <code>W + S</code>）即可停下。</li>
         <li><b>键盘技能</b>：<code>空格</code> / <code>E</code> / <code>K</code> 释放技能。</li>
         <li><b>暂停</b>：<code>Esc</code> 或 <code>P</code>，也可以点右上角按钮。</li>
-        <li>鼠标与键盘可以随时混用，谁最后操作就听谁的。</li>
+        <li>鼠标与键盘可以随时混用，<b>谁最后动谁说话</b>（鼠标一动就重新跟鼠标）。</li>
+        <li>不习惯惯性？主菜单把<b>「惯性」</b>切到「松手即停」即可。</li>
       </ul>
 
       <h3>核心操作 · 移动端</h3>
       <ul>
-        <li><b>虚拟摇杆</b>：按住屏幕任意位置会出现摇杆，<b>拖动方向 = 移动方向，拖得越远走得越快</b>；松手立即停下。</li>
-        <li>摇杆出现在你手指按下的地方，所以左手右手、横屏竖屏都顺手，不用去够固定按钮。</li>
+        <li><b>虚拟摇杆</b>：按住屏幕任意位置会出现摇杆，<b>拖动方向 = 移动方向，拖得越远走得越快</b>。</li>
+        <li><b>摇杆中心是锁定</b>的：按下瞬间它会落在你手指附近，但<b>不会跟着手指爬出屏幕</b>；
+          手指拖出刻度圈也只是「顶到边缘」，方向与满速都保留，<b>360° 都有完整行程</b>。</li>
+        <li>想停：把摇杆<b>拉回中心</b>再松手；或直接点一下屏幕重新按下。</li>
+        <li><b>惯性而行（默认开）</b>：抬起手指后，军团沿你最后的方向继续走；想改向只需再按屏幕拖一下。</li>
+        <li>摇杆出现在你手指按下的地方（靠近边缘时会往里收一点以保证行程），所以左手右手、横屏竖屏都顺手。</li>
         <li><b>技能</b>：点右下角圆形技能按钮（手指不会误触到摇杆，可多指同时操作）。</li>
         <li>如果习惯「点哪走哪」，可以在主菜单把「操作」切换为 <b>跟随手指</b> 模式。</li>
         <li>切到后台会自动暂停，回来点「继续游戏」即可。</li>
@@ -275,10 +283,10 @@
 
 <div id="toast-wrap"></div>
 
-<script src="js/config.js?v=20261006"></script>
-<script src="js/save.js?v=20261006"></script>
-<script src="js/audio.js?v=20261006"></script>
-<script src="js/engine.js?v=20261006"></script>
-<script src="js/ui.js?v=20261006"></script>
+<script src="js/config.js?v=20261006b"></script>
+<script src="js/save.js?v=20261006b"></script>
+<script src="js/audio.js?v=20261006b"></script>
+<script src="js/engine.js?v=20261006b"></script>
+<script src="js/ui.js?v=20261006b"></script>
 </body>
 </html>

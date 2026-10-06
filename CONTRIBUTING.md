@@ -33,15 +33,15 @@ npm test           # jsdom 端到端测试：真实点击全部界面 + 校验�
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `index.html` | 284 | 页面骨架与各屏 DOM（主菜单 / 准备页 / 对局 HUD / 结算 / 商店 / 成就…，对局屏内另有一个里程碑浮层） |
+| `index.html` | 292 | 页面骨架与各屏 DOM（主菜单 / 准备页 / 对局 HUD / 结算 / 商店 / 成就…，对局屏内另有一个里程碑浮层） |
 | `css/style.css` | 597 | 全部样式、断点适配、动画；**`:root` 自定义属性是全站配色真源**（图表也读它） |
 | `js/config.js` | 331 | **所有数值与内容的真源**：`CFG`、`SKILLS`、`BUFFS`、`START_OPTIONS`、`SKINS`、`LEVELS`、`ACHIEVEMENTS`、`ENDLESS`、`ENEMY_PALETTES` |
-| `js/engine.js` | 2107 | 核心引擎：`Legion` 类、按拍吞噬（`updateCombat` / `engulfedCount` / `absorbBatch`）、编队移动、AI、渲染、输入（鼠标/键盘/虚拟摇杆） |
-| `js/ui.js` | 873 | 界面流转与交互：渲染列表、按钮、结算页、里程碑浮层、Toast |
-| `js/save.js` | 98 | localStorage 存档读写 |
+| `js/engine.js` | 2204 | 核心引擎：`Legion` 类、按拍吞噬（`updateCombat` / `engulfedCount` / `absorbBatch`）、输入与巡航（`updateStick` / `updateControl`）、编队移动（`updateFormation`）、软暂停（`updateSettle`）、AI、渲染 |
+| `js/ui.js` | 897 | 界面流转与交互：渲染列表、按钮（含惯性开关）、结算页、里程碑浮层、Toast |
+| `js/save.js` | 102 | localStorage 存档读写（`merge()` 自动补全新字段） |
 | `js/audio.js` | 53 | WebAudio 实时合成音效（无音频文件） |
 | `server.js` | 126 | 零依赖静态服务器（含目录穿越防护、`/healthz`） |
-| `test/dom.test.js` | 933 | jsdom 端到端测试 |
+| `test/dom.test.js` | 1086 | jsdom 端到端测试 |
 | `scripts/start.sh` | 56 | CNB 云开发环境幂等启动脚本 |
 | `scripts/visualization/` | — | 图表与览页数据生成器：`lib_load_facts.mjs`（事实层）+ 3 个 `generate_*_svg.mjs`（产物写 `docs/*.svg`）+ `generate_overview_facts.mjs`（产物写 `project_overview/facts.js`） |
 
@@ -76,6 +76,12 @@ const SAVE_KEY = 'mini_legion_save_v1';
    反过来，把 `batchMax` 改成 1 则退回了旧版「擦边也一个一个吃、大兵团对小兵团也要半分钟」的手感。
 3. **跨端操作要同时兼顾三种输入**：鼠标指针跟随、键盘（WASD/方向键，支持双键斜向）、
    移动端虚拟摇杆（多指不互抢）。改输入必须过 `npm test` 里的摇杆/键盘/多指用例。
+   两条已经写进测试的设计约束，不要“顺手”改坏：
+   - **摇杆中心锁定**（`anchorStick`）：按下时把原点收进安全区，之后**绝不跟着手指跑**；
+     旧版的“橡皮筋”会让基座被拖到屏幕边缘、行程越用越短（历史缺陷，已有断言看着它）。
+   - **惯性而行与两种制动**（`glide`）：松手/松键后沿最后方向继续走；拉回摇杆中心死区、
+     或同时按住两个相反方向键必须能**真的停下**；换操控设备（鼠标一动 / 触屏按下 / 切后台）
+     一律作废巡航。
 4. **数值改动要同步文档。** 改了 `config.js` 的关卡/技能/皮肤/成就数值，必须同步
    `docs/02-modes.md`、`docs/03-systems.md` 与 `README.md` 里对应的描述，否则视为不完整改动。
    同一条规矩也适用于**技能 / 增益**：`SKILLS` 与 `BUFFS` 里的 `desc` 是给玩家看的承诺
